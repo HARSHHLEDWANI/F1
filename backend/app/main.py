@@ -4,11 +4,19 @@ from sqlalchemy.orm import Session
 from .database import engine, SessionLocal
 from . import models, schemas
 from .auth import hash_password, verify_password, create_access_token
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import date
 from .dependencies import get_current_user
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def get_db():
     db = SessionLocal()
     try:
