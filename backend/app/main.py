@@ -1,15 +1,25 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from .database import engine, SessionLocal
+from datetime import date
+
+from .database import engine, SessionLocal, get_db
 from . import models, schemas
 from .auth import hash_password, verify_password, create_access_token
-from fastapi.middleware.cors import CORSMiddleware
-from datetime import date
 from .dependencies import get_current_user
-models.Base.metadata.create_all(bind=engine)
+
+from fastapi.middleware.cors import CORSMiddleware
+from app.routes import f1
 
 app = FastAPI()
+
+# ⭐ Create tables
+models.Base.metadata.create_all(bind=engine)
+
+# ⭐ Include API routes
+app.include_router(f1.router)
+
+# ⭐ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -17,17 +27,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @app.post("/signup")
 def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
+
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -42,6 +47,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return {"message": "User created successfully"}
+
 
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(),
@@ -61,11 +67,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(),
         "token_type": "bearer"
     }
 
+
 @app.post("/predict")
 def predict(current_user: models.User = Depends(get_current_user),
             db: Session = Depends(get_db)):
 
-    # 🔁 Reload user in this session
     user = db.query(models.User).filter(models.User.id == current_user.id).first()
 
     today = date.today()
@@ -92,10 +98,10 @@ def predict(current_user: models.User = Depends(get_current_user),
     }
 
 
-
 @app.get("/")
 def root():
     return {"message": "F1 Backend Running 🚀"}
+
 
 @app.get("/races/{race_id}")
 def get_race(race_id: int,
@@ -109,7 +115,6 @@ def get_race(race_id: int,
 
     today = date.today()
 
-    # 🔐 Premium restriction logic
     if not current_user.is_pro and race.race_date == today:
         raise HTTPException(
             status_code=403,
