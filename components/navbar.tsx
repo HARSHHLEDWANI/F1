@@ -1,21 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUserTier } from "@/hooks/useUserTier";
 
 export default function Navbar() {
-  const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const { tier, loading: tierLoading, upgradeToPro } = useUserTier();
+
+  // 🔥 Load user from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  // 🔥 Logout function
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    window.location.href = "/auth/signin";
+  };
 
   return (
     <nav className="fixed top-0 w-full bg-black/80 backdrop-blur-md border-b border-red-600/30 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-white hover:text-red-500 transition">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-bold text-xl text-white hover:text-red-500 transition"
+          >
             <span className="text-2xl">🏎️</span>
             <span className="hidden sm:inline">F1 PREDICTOR</span>
           </Link>
@@ -35,14 +52,17 @@ export default function Navbar() {
               Predictions
             </Link>
 
-            {session ? (
+            {user ? (
               <div className="flex items-center gap-4 pl-4 border-l border-red-600/30">
                 <div className="flex flex-col items-end">
-                  <span className="text-sm text-gray-300">{session.user?.name}</span>
+                  <span className="text-sm text-gray-300">
+                    {user.name || user.email}
+                  </span>
                   <span className="text-[11px] uppercase tracking-wide rounded-full px-2 py-0.5 bg-gray-900 border border-red-600/50 text-red-400">
                     {tierLoading ? "Loading..." : tier === "pro" ? "Pro Access" : "Free Tier"}
                   </span>
                 </div>
+
                 {tier !== "pro" && !tierLoading && (
                   <button
                     onClick={upgradeToPro}
@@ -51,8 +71,9 @@ export default function Navbar() {
                     Upgrade to Pro
                   </button>
                 )}
+
                 <button
-                  onClick={() => signOut()}
+                  onClick={handleLogout}
                   className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
                 >
                   Sign Out
@@ -69,10 +90,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-white"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
+          <button className="md:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -94,14 +112,18 @@ export default function Navbar() {
             <Link href="/prediction" className="block text-gray-300 hover:text-red-500 transition font-medium py-2">
               Predictions
             </Link>
-            {session ? (
+
+            {user ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs text-gray-300 truncate">{session.user?.name}</span>
+                  <span className="text-xs text-gray-300 truncate">
+                    {user.name || user.email}
+                  </span>
                   <span className="text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 bg-gray-900 border border-red-600/50 text-red-400">
                     {tierLoading ? "Loading..." : tier === "pro" ? "Pro" : "Free"}
                   </span>
                 </div>
+
                 {tier !== "pro" && !tierLoading && (
                   <button
                     onClick={upgradeToPro}
@@ -110,8 +132,9 @@ export default function Navbar() {
                     Upgrade to Pro
                   </button>
                 )}
+
                 <button
-                  onClick={() => signOut()}
+                  onClick={handleLogout}
                   className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition text-left"
                 >
                   Sign Out
