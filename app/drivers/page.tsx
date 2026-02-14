@@ -30,7 +30,7 @@ export default function DriversPage() {
     const user = localStorage.getItem("user");
 
     if (!user) {
-      router.push("/auth/signin");
+      router.push("/signin");
       return;
     }
 

@@ -11,129 +11,48 @@ interface UseUserTierResult {
   upgradeToPro: () => Promise<void>;
 }
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
 export function useUserTier(): UseUserTierResult {
   const [tier, setTier] = useState<Tier>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // 🔥 Get user + token from localStorage
-  const getAuthData = () => {
-    if (typeof window === "undefined") return null;
-
-    const userStr = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
-
-    if (!userStr) return null;
-
-    return {
-      user: JSON.parse(userStr),
-      token,
-    };
-  };
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
 
   useEffect(() => {
-    const auth = getAuthData();
-    const email = auth?.user?.email;
+    try {
+      const userStr = localStorage.getItem("user");
 
-    if (!email) {
-      setTier(null);
-      return;
-    }
-
-    const syncUser = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Upsert user
-        await fetch(`${API_BASE}/users`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: auth?.token ? `Bearer ${auth.token}` : "",
-          },
-          body: JSON.stringify({
-            email,
-            name: auth?.user?.name,
-            tier: "free",
-          }),
-        });
-
-        // Get tier
-        const res = await fetch(
-          `${API_BASE}/users/by-email/${encodeURIComponent(email)}`,
-          {
-            headers: {
-              Authorization: auth?.token ? `Bearer ${auth.token}` : "",
-            },
-          }
-        );
-
-        if (!res.ok) {
-          throw new Error("Failed to load user tier");
-        }
-
-        const data = await res.json();
-        setTier(data.tier === "pro" ? "pro" : "free");
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || "Unable to load user tier");
-      } finally {
-        setLoading(false);
+      if (!userStr) {
+        setTier(null);
+        return;
       }
-    };
 
-    syncUser();
+      const user = JSON.parse(userStr);
+
+      // 🔥 Main logic — read boolean flag
+      if (user.is_pro === true) {
+        setTier("pro");
+      } else {
+        setTier("free");
+      }
+    } catch (err) {
+      console.error("Failed to read user tier:", err);
+      setTier("free");
+    }
   }, []);
 
+  // 🔥 Placeholder — real upgrade should be backend call
   const upgradeToPro = async () => {
-    const auth = getAuthData();
-    const email = auth?.user?.email;
-
-    if (!email) return;
-
     try {
-      setLoading(true);
-      setError(null);
+      const userStr = localStorage.getItem("user");
+      if (!userStr) return;
 
-      const resUser = await fetch(
-        `${API_BASE}/users/by-email/${encodeURIComponent(email)}`,
-        {
-          headers: {
-            Authorization: auth?.token ? `Bearer ${auth.token}` : "",
-          },
-        }
-      );
+      const user = JSON.parse(userStr);
 
-      if (!resUser.ok) {
-        throw new Error("User not found");
-      }
+      user.is_pro = true;
 
-      const user = await resUser.json();
-
-      const res = await fetch(
-        `${API_BASE}/users/${user.id}/tier?tier=pro`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: auth?.token ? `Bearer ${auth.token}` : "",
-          },
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to upgrade tier");
-      }
-
+      localStorage.setItem("user", JSON.stringify(user));
       setTier("pro");
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Unable to upgrade tier");
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error("Upgrade failed:", err);
     }
   };
 
