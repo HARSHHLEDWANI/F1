@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean ,Date
 from datetime import date
 from .database import Base
-from sqlalchemy import Column, Integer, String, Date
+from sqlalchemy import Column, Integer, String, Date ,Float
 from app.database import Base
 
 class User(Base):
@@ -44,6 +44,9 @@ class Circuit(Base):
     __tablename__ = "circuits"
 
     id = Column(Integer, primary_key=True, index=True)
+    circuit_ref = Column(String)
     name = Column(String)
-    location = Column(String)
+    locality = Column(String)
     country = Column(String)
+    lat = Column(Float)
+    lng = Column(Float)

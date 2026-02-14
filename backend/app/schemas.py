@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-
+from typing import Optional
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -34,12 +34,14 @@ class Team(BaseModel):
     class Config:
         from_attributes = True
 
-
 class Circuit(BaseModel):
     id: int
+    circuit_ref: Optional[str] = None
     name: str
-    location: str
+    locality: str
     country: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
     class Config:
         from_attributes = True
