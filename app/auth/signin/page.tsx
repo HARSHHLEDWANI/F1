@@ -14,42 +14,71 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleEmailAuth = async () => {
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      if (!email || !password) {
-        setError("Please enter both email and password.");
+  try {
+    if (!email || !password) {
+      setError("Please enter both email and password.");
+      setIsLoading(false);
+      return;
+    }
+
+    // ✅ Always clear old token first
+    localStorage.removeItem("token");
+
+    let res;
+
+    // 🟢 REGISTER
+    if (mode === "register") {
+      res = await fetch(`${API_BASE}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          name: name.trim() || "",
+        }),
+      });
+
+      const registerData = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError(registerData?.detail || "Registration failed");
         setIsLoading(false);
         return;
       }
 
-      let res;
+      // ⭐ Auto login after register
+      const loginRes = await fetch(`${API_BASE}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          username: email.trim(),
+          password,
+        }).toString(),
+      });
 
-      // 🟢 REGISTER
-      if (mode === "register") {
-        res = await fetch(`${API_BASE}/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: email.trim(),
-            password,
-            name: name.trim() || "",
-          }),
-        });
-      } else {
-        // 🔵 LOGIN
-        res = await fetch(`${API_BASE}/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            username: email.trim(),
-            password,
-          }).toString(),
-        });
+      const loginData = await loginRes.json();
+
+      if (loginData?.access_token) {
+        localStorage.setItem("token", loginData.access_token);
       }
+
+    } else {
+      // 🔵 LOGIN
+      res = await fetch(`${API_BASE}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          username: email.trim(),
+          password,
+        }).toString(),
+      });
 
       const data = await res.json().catch(() => null);
 
@@ -59,20 +88,22 @@ export default function SignInPage() {
         return;
       }
 
-      // ✅ STORE JWT TOKEN AFTER LOGIN
+      // ✅ Store token
       if (data?.access_token) {
         localStorage.setItem("token", data.access_token);
       }
-
-      // redirect after success
-      window.location.href = "/";
-
-    } catch (err) {
-      console.error(err);
-      setError("Server unreachable. Make sure backend is running.");
-      setIsLoading(false);
     }
-  };
+
+    // redirect after success
+    window.location.href = "/";
+
+  } catch (err) {
+    console.error(err);
+    setError("Server unreachable. Make sure backend is running.");
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-red-900 to-black p-4">
