@@ -1,5 +1,5 @@
 import json
-from db import get_connection
+from backend.data_pipeline.db import get_connection
 
 def load_drivers():
     conn = get_connection()

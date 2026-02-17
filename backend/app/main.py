@@ -10,7 +10,7 @@ from .dependencies import get_current_user
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import f1
-
+from app.routes import profile
 app = FastAPI()
 
 # ⭐ Create tables
@@ -18,6 +18,7 @@ models.Base.metadata.create_all(bind=engine)
 
 # ⭐ Include API routes
 app.include_router(f1.router)
+app.include_router(profile.router)
 
 # ⭐ CORS
 app.add_middleware(

@@ -62,6 +62,7 @@ useEffect(() => {
             <Link href="/drivers" className="text-gray-300 hover:text-red-500 font-medium">Drivers</Link>
             <Link href="/tracks" className="text-gray-300 hover:text-red-500 font-medium">Tracks</Link>
             <Link href="/prediction" className="text-gray-300 hover:text-red-500 font-medium">Predictions</Link>
+            <Link href="/profile" className="text-gray-300 hover:text-red-500 font-medium">Profile</Link>
 
             {user ? (
               <div className="flex items-center gap-4 pl-4 border-l border-red-600/30">
@@ -123,7 +124,7 @@ useEffect(() => {
             <Link href="/drivers" className="block text-gray-300 hover:text-red-500 py-2">Drivers</Link>
             <Link href="/tracks" className="block text-gray-300 hover:text-red-500 py-2">Tracks</Link>
             <Link href="/prediction" className="block text-gray-300 hover:text-red-500 py-2">Predictions</Link>
-
+            <Link href="/profile"className="block text-gray-300 hover:text-red-500 py-2">Profile</Link>
             {user ? (
               <div className="space-y-2">
 
