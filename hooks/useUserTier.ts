@@ -1,60 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 type Tier = "free" | "pro" | null;
 
-interface UseUserTierResult {
-  tier: Tier;
-  loading: boolean;
-  error: string | null;
-  upgradeToPro: () => Promise<void>;
-}
-
-export function useUserTier(): UseUserTierResult {
+export function useUserTier() {
   const [tier, setTier] = useState<Tier>(null);
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem("user");
-
-      if (!userStr) {
+    const fetchTier = async () => {
+      try {
+        const user = await apiFetch("/me"); // ✅ sends Bearer token
+        setTier(user.is_pro ? "pro" : "free");
+      } catch (err) {
+        console.error("Failed to fetch tier:", err);
+        setError("Failed to load tier");
         setTier(null);
-        return;
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const user = JSON.parse(userStr);
-
-      // 🔥 Main logic — read boolean flag
-      if (user.is_pro === true) {
-        setTier("pro");
-      } else {
-        setTier("free");
-      }
-    } catch (err) {
-      console.error("Failed to read user tier:", err);
-      setTier("free");
-    }
+    fetchTier();
   }, []);
 
-  // 🔥 Placeholder — real upgrade should be backend call
-  const upgradeToPro = async () => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (!userStr) return;
-
-      const user = JSON.parse(userStr);
-
-      user.is_pro = true;
-
-      localStorage.setItem("user", JSON.stringify(user));
-      setTier("pro");
-    } catch (err) {
-      console.error("Upgrade failed:", err);
-    }
-  };
-
-  return { tier, loading, error, upgradeToPro };
+  return { tier, loading, error };
 }

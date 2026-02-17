@@ -1,16 +1,27 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 export function useAuth() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const checkAuth = async () => {
+      try {
+        await apiFetch("/me"); // ✅ sends Bearer token
+      } catch (err) {
+        console.warn("User not authenticated");
+        router.replace("/auth/signin");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (!token) {
-      router.replace("/auth/signin");
-    }
+    checkAuth();
   }, [router]);
+
+  return { loading };
 }

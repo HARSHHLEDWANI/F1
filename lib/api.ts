@@ -4,7 +4,8 @@ export async function apiFetch(
   endpoint: string,
   options: RequestInit = {}
 ) {
-  const token = localStorage.getItem("token");
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const res = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -15,10 +16,10 @@ export async function apiFetch(
     },
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
 
   if (!res.ok) {
-    throw new Error(data.detail || "Something went wrong");
+    throw new Error(data?.detail || `API Error: ${res.status}`);
   }
 
   return data;

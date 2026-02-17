@@ -2,10 +2,9 @@
 
 import Navbar from "@/components/navbar";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { apiFetch } from "@/lib/api";
 
 interface Track {
   id: number;
@@ -36,7 +35,7 @@ const getDifficultyColor = (difficulty: string) => {
 };
 
 export default function TracksPage() {
-  const router = useRouter();
+  const { loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
 
   const region = searchParams.get("region") || "";
@@ -45,46 +44,37 @@ export default function TracksPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Check auth
   useEffect(() => {
-    const user = localStorage.getItem("user");
+    if (authLoading) return;
 
-    if (!user) {
-      router.push("/auth/signin");
-      return;
-    }
+    const loadTracks = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (region) params.set("region", region);
+        if (country) params.set("country", country);
+
+        const endpoint = `/tracks${
+          params.toString() ? `?${params.toString()}` : ""
+        }`;
+
+        const data = await apiFetch(endpoint);
+        setTracks(data);
+      } catch (err) {
+        console.error("Failed to load tracks:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
     loadTracks();
-  }, [region, country]);
-
-  const loadTracks = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (region) params.set("region", region);
-      if (country) params.set("country", country);
-
-      const url = `${API_BASE}/tracks${
-        params.toString() ? `?${params.toString()}` : ""
-      }`;
-
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to load tracks");
-
-      const data = await res.json();
-      setTracks(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [region, country, authLoading]);
 
   const regions = Array.from(new Set(tracks.map((t) => t.region))).sort();
   const countries = Array.from(
     new Set(tracks.map((t) => t.country_name))
   ).sort();
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <>
         <Navbar />
@@ -101,7 +91,7 @@ export default function TracksPage() {
 
       <div className="min-h-screen bg-black/90 pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
+
           <div className="mb-12">
             <h1 className="text-5xl font-bold text-white mb-4">
               RACE TRACKS WORLDWIDE
@@ -111,33 +101,17 @@ export default function TracksPage() {
             </p>
           </div>
 
-          {/* Filters */}
           <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+
             <div>
-              <p className="text-xs text-gray-500 mb-1">
-                Filter by Region
-              </p>
+              <p className="text-xs text-gray-500 mb-1">Filter by Region</p>
               <div className="flex flex-wrap gap-2">
-                <a
-                  href="/tracks"
-                  className={`px-3 py-1 rounded-full text-xs border ${
-                    !region
-                      ? "bg-red-600 text-white border-red-500"
-                      : "border-gray-700 text-gray-300"
-                  }`}
-                >
+                <a href="/tracks" className="px-3 py-1 rounded-full text-xs border border-gray-700 text-gray-300">
                   All Regions
                 </a>
                 {regions.map((r) => (
-                  <a
-                    key={r}
-                    href={`/tracks?region=${encodeURIComponent(r)}`}
-                    className={`px-3 py-1 rounded-full text-xs border ${
-                      region === r
-                        ? "bg-red-600 text-white border-red-500"
-                        : "border-gray-700 text-gray-300"
-                    }`}
-                  >
+                  <a key={r} href={`/tracks?region=${encodeURIComponent(r)}`}
+                    className="px-3 py-1 rounded-full text-xs border border-gray-700 text-gray-300">
                     {r}
                   </a>
                 ))}
@@ -145,74 +119,49 @@ export default function TracksPage() {
             </div>
 
             <div>
-              <p className="text-xs text-gray-500 mb-1">
-                Filter by Country
-              </p>
+              <p className="text-xs text-gray-500 mb-1">Filter by Country</p>
               <div className="flex flex-wrap gap-2">
-                <a
-                  href="/tracks"
-                  className={`px-3 py-1 rounded-full text-xs border ${
-                    !country
-                      ? "bg-blue-600 text-white border-blue-500"
-                      : "border-gray-700 text-gray-300"
-                  }`}
-                >
+                <a href="/tracks" className="px-3 py-1 rounded-full text-xs border border-gray-700 text-gray-300">
                   All Countries
                 </a>
                 {countries.map((c) => (
-                  <a
-                    key={c}
-                    href={`/tracks?country=${encodeURIComponent(c)}`}
-                    className={`px-3 py-1 rounded-full text-xs border ${
-                      country === c
-                        ? "bg-blue-600 text-white border-blue-500"
-                        : "border-gray-700 text-gray-300"
-                    }`}
-                  >
+                  <a key={c} href={`/tracks?country=${encodeURIComponent(c)}`}
+                    className="px-3 py-1 rounded-full text-xs border border-gray-700 text-gray-300">
                     {c}
                   </a>
                 ))}
               </div>
             </div>
+
           </div>
 
-          {/* Tracks Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {tracks.map((track) => (
-              <div
-                key={track.id}
-                className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-600/30 rounded-xl overflow-hidden"
-              >
+              <div key={track.id}
+                className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-600/30 rounded-xl overflow-hidden">
+
                 <div className="bg-gradient-to-r from-red-600 to-orange-600 p-6">
-                  <h2 className="text-2xl font-bold text-white">
-                    {track.name}
-                  </h2>
+                  <h2 className="text-2xl font-bold text-white">{track.name}</h2>
                   <p className="text-sm text-white/90">
                     {track.city}, {track.country_name}
                   </p>
                 </div>
 
                 <div className="p-6 grid grid-cols-2 gap-4">
-                  <p className="text-white font-bold">
-                    {track.length_km} km
-                  </p>
-                  <p className="text-white font-bold">
-                    {track.laps} laps
-                  </p>
-                  <p
-                    className={`font-bold ${getDifficultyColor(
-                      track.difficulty
-                    )}`}
-                  >
+                  <p className="text-white font-bold">{track.length_km} km</p>
+                  <p className="text-white font-bold">{track.laps} laps</p>
+
+                  <p className={`font-bold ${getDifficultyColor(track.difficulty)}`}>
                     {track.difficulty}
                   </p>
-                  <p className="text-blue-400 font-bold">
-                    {track.lap_record}
-                  </p>
+
+                  <p className="text-blue-400 font-bold">{track.lap_record}</p>
                 </div>
+
               </div>
             ))}
           </div>
+
         </div>
       </div>
     </>

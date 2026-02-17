@@ -2,10 +2,8 @@
 
 import Navbar from "@/components/navbar";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+import { useAuth } from "@/hooks/useAuth";
+import { apiFetch } from "@/lib/api";
 
 interface Team {
   id: number;
@@ -18,37 +16,29 @@ interface Team {
 }
 
 export default function TeamsPage() {
-  const router = useRouter();
+  const { loading: authLoading } = useAuth();
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Check auth
   useEffect(() => {
-    const user = localStorage.getItem("user");
+    if (authLoading) return;
 
-    if (!user) {
-      router.push("/auth/signin");
-      return;
-    }
+    const loadTeams = async () => {
+      try {
+        const data = await apiFetch("/teams");
+        setTeams(data);
+      } catch (err) {
+        console.error("Failed to load teams:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
     loadTeams();
-  }, []);
+  }, [authLoading]);
 
-  const loadTeams = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/teams`);
-      if (!res.ok) throw new Error("Failed to load teams");
-
-      const data = await res.json();
-      setTeams(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <>
         <Navbar />
@@ -65,7 +55,7 @@ export default function TeamsPage() {
 
       <div className="min-h-screen bg-black/90 pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
+
           <div className="mb-12">
             <h1 className="text-5xl font-bold text-white mb-4">
               FORMULA 1 TEAMS
@@ -75,7 +65,6 @@ export default function TeamsPage() {
             </p>
           </div>
 
-          {/* Teams Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {teams.map((team) => (
               <div
@@ -83,6 +72,7 @@ export default function TeamsPage() {
                 className="group rounded-xl overflow-hidden border-2 transition-all hover:scale-105 hover:shadow-2xl"
                 style={{ borderColor: team.secondary_color }}
               >
+
                 <div
                   className="p-6 text-white"
                   style={{ backgroundColor: team.primary_color }}
@@ -117,7 +107,7 @@ export default function TeamsPage() {
                   </div>
 
                   <button
-                    className="w-full mt-4 py-2 rounded-lg font-semibold transition-all"
+                    className="w-full mt-4 py-2 rounded-lg font-semibold"
                     style={{
                       backgroundColor: team.secondary_color,
                       color: "#fff",
@@ -126,9 +116,11 @@ export default function TeamsPage() {
                     View Team Details
                   </button>
                 </div>
+
               </div>
             ))}
           </div>
+
         </div>
       </div>
     </>

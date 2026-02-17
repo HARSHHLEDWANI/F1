@@ -26,7 +26,7 @@ export default function SignInPage() {
 
       let res;
 
-      // 🟢 REGISTER → JSON
+      // 🟢 REGISTER
       if (mode === "register") {
         res = await fetch(`${API_BASE}/signup`, {
           method: "POST",
@@ -35,11 +35,10 @@ export default function SignInPage() {
             email: email.trim(),
             password,
             name: name.trim() || "",
-            tier: "free",
           }),
         });
       } else {
-        // 🔵 LOGIN → OAuth2 form
+        // 🔵 LOGIN
         res = await fetch(`${API_BASE}/login`, {
           method: "POST",
           headers: {
@@ -52,41 +51,25 @@ export default function SignInPage() {
         });
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        if (res.status === 422 && Array.isArray(data.detail)) {
-          setError(
-            `Validation Error: ${data.detail[0].msg} (${data.detail[0].loc[1]})`
-          );
-        } else {
-          setError(data.detail || "Authentication failed");
-        }
+        setError(data?.detail || "Authentication failed");
         setIsLoading(false);
         return;
       }
 
-      // 🔥 LOGIN response → store token
-      if (data.access_token) {
+      // ✅ STORE JWT TOKEN AFTER LOGIN
+      if (data?.access_token) {
         localStorage.setItem("token", data.access_token);
-
-        // store basic user info
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            email,
-            name: name || email,
-          })
-        );
-      } else {
-        // REGISTER response
-        localStorage.setItem("user", JSON.stringify(data));
       }
 
+      // redirect after success
       window.location.href = "/";
+
     } catch (err) {
       console.error(err);
-      setError("Server is unreachable. Please ensure backend is running.");
+      setError("Server unreachable. Make sure backend is running.");
       setIsLoading(false);
     }
   };
@@ -94,8 +77,9 @@ export default function SignInPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-red-900 to-black p-4">
       <div className="w-full max-w-md rounded-2xl bg-white/10 p-8 backdrop-blur-md border border-white/20 shadow-2xl">
+
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-tighter italic">
+          <h1 className="text-4xl font-bold text-white mb-2 italic">
             🏎️ F1 PREDICTOR
           </h1>
           <p className="text-gray-400 text-sm">
@@ -107,20 +91,21 @@ export default function SignInPage() {
         <div className="flex mb-8 rounded-lg bg-black/40 p-1 border border-white/5">
           <button
             onClick={() => setMode("login")}
-            className={`flex-1 py-2 rounded-md transition ${
+            className={`flex-1 py-2 rounded-md ${
               mode === "login"
                 ? "bg-red-600 text-white font-bold"
-                : "text-gray-400 hover:text-white"
+                : "text-gray-400"
             }`}
           >
             LOGIN
           </button>
+
           <button
             onClick={() => setMode("register")}
-            className={`flex-1 py-2 rounded-md transition ${
+            className={`flex-1 py-2 rounded-md ${
               mode === "register"
                 ? "bg-red-600 text-white font-bold"
-                : "text-gray-400 hover:text-white"
+                : "text-gray-400"
             }`}
           >
             REGISTER
@@ -128,45 +113,31 @@ export default function SignInPage() {
         </div>
 
         <div className="space-y-4">
+
           {mode === "register" && (
-            <div>
-              <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase">
-                Display Name
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg bg-black/50 border border-white/10 px-4 py-3 text-white"
-                placeholder="e.g. MaxV1"
-              />
-            </div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-lg bg-black/50 border border-white/10 px-4 py-3 text-white"
+              placeholder="Display name"
+            />
           )}
 
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg bg-black/50 border border-white/10 px-4 py-3 text-white"
-              placeholder="driver@f1.com"
-            />
-          </div>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-lg bg-black/50 border border-white/10 px-4 py-3 text-white"
+            placeholder="Email"
+          />
 
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg bg-black/50 border border-white/10 px-4 py-3 text-white"
-              placeholder="••••••••"
-            />
-          </div>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg bg-black/50 border border-white/10 px-4 py-3 text-white"
+            placeholder="Password"
+          />
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-lg text-red-400 text-xs text-center">
@@ -177,7 +148,7 @@ export default function SignInPage() {
           <button
             onClick={handleEmailAuth}
             disabled={isLoading}
-            className="w-full py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-black tracking-widest disabled:opacity-50"
+            className="w-full py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-black disabled:opacity-50"
           >
             {isLoading
               ? "SYNCING..."
@@ -185,6 +156,7 @@ export default function SignInPage() {
               ? "ENTER PADDOCK"
               : "SIGN CONTRACT"}
           </button>
+
         </div>
       </div>
     </div>
