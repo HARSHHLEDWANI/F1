@@ -1,6 +1,15 @@
-from sqlalchemy import Column, Integer, String, Boolean ,Date
-from datetime import date
-from .database import Base
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    DateTime,
+    Boolean
+)
+
+from datetime import datetime, date
+
+from app.database import Base
 from sqlalchemy import Column, Integer, String, Date ,Float
 from app.database import Base
 

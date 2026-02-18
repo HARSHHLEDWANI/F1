@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import f1
 from app.routes import profile
 from app.schemas import PredictionCreate
+from sqlalchemy import text
+
 app = FastAPI()
 
 # ⭐ Create tables
@@ -139,7 +141,68 @@ def predict(
         "message": "Prediction saved",
         "remaining_predictions": limit - user.predictions_today
     }
+@app.post("/calculate-results")
+def calculate_results(
+    season: int,
+    round: int,
+    db: Session = Depends(get_db)
+):
+    actual_results = db.execute(
+    text("""
+        SELECT driver_ref, position
+        FROM race_results
+        WHERE season = :season
+        AND round = :round
+        AND position <= 3
+    """),
+    {"season": season, "round": round}
+    ).fetchall()
 
+    if len(actual_results) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Podium data not complete for this race"
+        )
+
+    actual_podium = {row.position: row.driver_ref for row in actual_results}
+
+    predictions = db.query(models.Prediction).filter(
+        models.Prediction.season == season,
+        models.Prediction.round == round
+    ).all()
+
+    if not predictions:
+        return {"message": "No predictions found for this race"}
+
+    for pred in predictions:
+        score = 0
+
+        # Position 1
+        if pred.predicted_p1 == actual_podium.get(1):
+            score += 3
+        elif pred.predicted_p1 in actual_podium.values():
+            score += 1
+
+        # Position 2
+        if pred.predicted_p2 == actual_podium.get(2):
+            score += 3
+        elif pred.predicted_p2 in actual_podium.values():
+            score += 1
+
+        # Position 3
+        if pred.predicted_p3 == actual_podium.get(3):
+            score += 3
+        elif pred.predicted_p3 in actual_podium.values():
+            score += 1
+
+        pred.score = score
+
+    db.commit()
+
+    return {
+        "message": "Scores calculated successfully",
+        "predictions_scored": len(predictions)
+    }
 @app.get("/")
 def root():
     return {"message": "F1 Backend Running 🚀"}
