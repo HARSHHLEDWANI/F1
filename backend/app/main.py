@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import f1
 from app.routes import profile
 from app.schemas import PredictionCreate
-from sqlalchemy import text
+from sqlalchemy import text , func
 
 app = FastAPI()
 
@@ -202,6 +202,39 @@ def calculate_results(
     return {
         "message": "Scores calculated successfully",
         "predictions_scored": len(predictions)
+    }
+
+@app.get("/prediction-history")
+def prediction_history(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    stats = db.query(
+        func.count(models.Prediction.id).label("total_predictions"),
+        func.sum(models.Prediction.score).label("total_score"),
+        func.avg(models.Prediction.score).label("avg_score"),
+        func.max(models.Prediction.score).label("best_score")
+    ).filter(
+        models.Prediction.user_id == current_user.id
+    ).first()
+
+    total_predictions = stats.total_predictions or 0
+    total_score = stats.total_score or 0
+    avg_score = float(stats.avg_score or 0)
+    best_score = stats.best_score or 0
+
+    # Max possible per race = 9
+    accuracy = 0
+    if total_predictions > 0:
+        accuracy = round((avg_score / 9) * 100, 2)
+
+    return {
+        "total_predictions": total_predictions,
+        "total_score": total_score,
+        "average_score": round(avg_score, 2),
+        "best_score": best_score,
+        "accuracy_percentage": accuracy
     }
 @app.get("/")
 def root():
