@@ -11,6 +11,7 @@ from .dependencies import get_current_user
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import f1
 from app.routes import profile
+from app.schemas import PredictionCreate
 app = FastAPI()
 
 # ⭐ Create tables
@@ -70,10 +71,15 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(),
 
 
 @app.post("/predict")
-def predict(current_user: models.User = Depends(get_current_user),
-            db: Session = Depends(get_db)):
+def predict(
+    prediction: PredictionCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
 
-    user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    user = db.query(models.User).filter(
+        models.User.id == current_user.id
+    ).first()
 
     today = date.today()
 
@@ -81,7 +87,7 @@ def predict(current_user: models.User = Depends(get_current_user),
         user.predictions_today = 0
         user.last_prediction_date = today
 
-    limit = 25 if user.is_pro else 3
+    limit = 25 if user.plan == "PRO" else 3
 
     if user.predictions_today >= limit:
         raise HTTPException(
@@ -89,15 +95,50 @@ def predict(current_user: models.User = Depends(get_current_user),
             detail=f"Daily prediction limit reached ({limit})"
         )
 
+    # 🚫 Prevent duplicate race prediction
+    existing = db.query(models.Prediction).filter(
+        models.Prediction.user_id == user.id,
+        models.Prediction.season == prediction.season,
+        models.Prediction.round == prediction.round
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="You already predicted this race"
+        )
+
+    # 🚫 Prevent duplicate drivers
+    drivers = [
+        prediction.predicted_p1,
+        prediction.predicted_p2,
+        prediction.predicted_p3
+    ]
+
+    if len(set(drivers)) != 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Drivers must be unique"
+        )
+
+    new_prediction = models.Prediction(
+        user_id=user.id,
+        season=prediction.season,
+        round=prediction.round,
+        predicted_p1=prediction.predicted_p1,
+        predicted_p2=prediction.predicted_p2,
+        predicted_p3=prediction.predicted_p3
+    )
+
+    db.add(new_prediction)
+
     user.predictions_today += 1
     db.commit()
 
     return {
-        "message": "Prediction recorded",
-        "remaining_predictions": limit - user.predictions_today,
-        "predictions_used": user.predictions_today
+        "message": "Prediction saved",
+        "remaining_predictions": limit - user.predictions_today
     }
-
 
 @app.get("/")
 def root():

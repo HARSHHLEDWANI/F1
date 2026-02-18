@@ -53,3 +53,19 @@ class Circuit(Base):
     country = Column(String)
     lat = Column(Float)
     lng = Column(Float)
+
+class Prediction(Base):
+    __tablename__ = "predictions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    season = Column(Integer, nullable=False)
+    round = Column(Integer, nullable=False)
+
+    predicted_p1 = Column(String(50))
+    predicted_p2 = Column(String(50))
+    predicted_p3 = Column(String(50))
+
+    score = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow)

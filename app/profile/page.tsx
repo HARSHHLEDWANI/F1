@@ -44,25 +44,31 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen text-white">
+      <div className="flex justify-center items-center min-h-screen text-white bg-black">
         Loading...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white px-6 py-12">
+    <div className="min-h-screen bg-black text-white px-6 py-12 relative overflow-hidden">
       
-      <div className="max-w-5xl mx-auto space-y-8">
+      {/* 🔥 Aggressive Red F1 Glow Background */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,0,0,0.15),transparent_70%)] animate-pulse pointer-events-none" />
 
-        {/* HEADER */}
+      <div className="relative max-w-5xl mx-auto space-y-8">
+
+        {/* PROFILE HEADER */}
         <div className="bg-zinc-900 border border-red-600 rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center shadow-lg">
-          
+
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center text-2xl font-bold">
-              {user.email[0].toUpperCase()}
+            
+            {/* Avatar */}
+            <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center text-2xl font-bold shadow-[0_0_20px_rgba(255,0,0,0.6)]">
+              {user.email?.[0]?.toUpperCase()}
             </div>
 
+            {/* Name + Email */}
             <div>
               <h1 className="text-3xl font-bold text-red-500">
                 {user.name || "F1 Racer"}
@@ -71,38 +77,55 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-6 md:mt-0">
-            <span className="px-4 py-2 rounded-full bg-red-600 text-white text-sm font-semibold">
+          {/* PRO Badge Section */}
+          <div className="mt-6 md:mt-0 relative">
+
+            {user.plan === "PRO" && (
+              <span className="absolute -top-4 -right-4 text-yellow-400 text-2xl">
+                👑
+              </span>
+            )}
+
+            <span
+              className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                user.plan === "PRO"
+                  ? "bg-yellow-500 text-black shadow-[0_0_20px_rgba(255,215,0,0.8)]"
+                  : "bg-red-600 text-white"
+              }`}
+            >
               {user.plan || "FREE"}
             </span>
           </div>
+
         </div>
 
-        {/* STATS */}
+        {/* STATS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
-          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700">
+          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 hover:border-red-600 transition">
             <h3 className="text-gray-400 text-sm">Predictions Made</h3>
             <p className="text-3xl font-bold mt-2">12</p>
           </div>
 
-          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700">
+          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 hover:border-red-600 transition">
             <h3 className="text-gray-400 text-sm">Accuracy</h3>
             <p className="text-3xl font-bold mt-2">78%</p>
           </div>
 
-          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700">
+          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 hover:border-red-600 transition">
             <h3 className="text-gray-400 text-sm">Favorite Team</h3>
-            <p className="text-3xl font-bold mt-2">Ferrari</p>
+            <p className="text-3xl font-bold mt-2">
+              {user.favorite_team || "Not Set"}
+            </p>
           </div>
 
         </div>
 
-        {/* ACTIONS */}
+        {/* ACTION BUTTONS */}
         <div className="flex gap-4">
-          
+
           {user.plan !== "PRO" && (
-            <button className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition">
+            <button className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition shadow-[0_0_20px_rgba(255,0,0,0.5)]">
               Upgrade to Pro
             </button>
           )}

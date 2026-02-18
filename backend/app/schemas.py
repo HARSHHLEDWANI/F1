@@ -45,3 +45,11 @@ class Circuit(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PredictionCreate(BaseModel):
+    season: int
+    round: int
+    predicted_p1: str
+    predicted_p2: str
+    predicted_p3: str
