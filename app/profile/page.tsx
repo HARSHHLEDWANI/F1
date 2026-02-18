@@ -3,22 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const API_BASE = "http://127.0.0.1:8000"; // change if needed
+
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token"); // ✅ FIXED
 
     if (!token) {
       router.push("/auth/signin");
       return;
     }
 
-    fetch("http://127.0.0.1:8000/profile", {
+    fetch(`${API_BASE}/profile`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${token}`, // ✅ correct format
       },
     })
       .then((res) => {
@@ -29,8 +31,9 @@ export default function ProfilePage() {
         setUser(data);
         setLoading(false);
       })
-      .catch(() => {
-        localStorage.removeItem("access_token");
+      .catch((err) => {
+        console.error("Profile fetch error:", err);
+        localStorage.removeItem("token"); // ✅ FIXED
         router.push("/auth/signin");
       });
   }, [router]);
@@ -57,8 +60,8 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <p className="text-gray-400">Username</p>
-            <p className="text-lg">{user.username}</p>
+            <p className="text-gray-400">Name</p>
+            <p className="text-lg">{user.name || "Not set"}</p>
           </div>
 
           <div>
