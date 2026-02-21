@@ -237,10 +237,14 @@ def prediction_history(
         "accuracy_percentage": accuracy
     }
 
+
+@app.get("/")
+def root():
+    return {"message": "F1 Backend Running 🚀"}
+
 @app.put("/update-preferences")
 def update_preferences(
-    favorite_team: str,
-    favorite_driver: str,
+    preferences: schemas.UpdatePreferences,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -249,16 +253,19 @@ def update_preferences(
         models.User.id == current_user.id
     ).first()
 
-    user.favorite_team = favorite_team
-    user.favorite_driver = favorite_driver
+    if preferences.favorite_team is not None:
+        user.favorite_team = preferences.favorite_team
+
+    if preferences.favorite_driver is not None:
+        user.favorite_driver = preferences.favorite_driver
 
     db.commit()
 
-    return {"message": "Preferences updated successfully"}
-
-@app.get("/")
-def root():
-    return {"message": "F1 Backend Running 🚀"}
+    return {
+        "message": "Preferences updated successfully",
+        "favorite_team": user.favorite_team,
+        "favorite_driver": user.favorite_driver
+    }
 
 
 @app.get("/races/{race_id}")
