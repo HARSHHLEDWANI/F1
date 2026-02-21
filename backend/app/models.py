@@ -25,6 +25,7 @@ class User(Base):
     last_prediction_date = Column(Date, default=date.today)
     plan = Column(String, default="FREE")
     favorite_team = Column(String, nullable=True)
+    favorite_driver = Column(String, nullable=True)
 
 class Race(Base):
     __tablename__ = "races"

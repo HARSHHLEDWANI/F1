@@ -8,7 +8,11 @@ const API_BASE = "http://127.0.0.1:8000";
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [favoriteTeam, setFavoriteTeam] = useState("");
+  const [favoriteDriver, setFavoriteDriver] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -18,23 +22,32 @@ export default function ProfilePage() {
       return;
     }
 
-    fetch(`${API_BASE}/profile`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
-      })
-      .then((data) => {
-        setUser(data);
+    const fetchData = async () => {
+      try {
+        const profileRes = await fetch(`${API_BASE}/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const profileData = await profileRes.json();
+        setUser(profileData);
+        setFavoriteTeam(profileData.favorite_team || "");
+        setFavoriteDriver(profileData.favorite_driver || "");
+
+        const statsRes = await fetch(`${API_BASE}/prediction-history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const statsData = await statsRes.json();
+        setStats(statsData);
+
         setLoading(false);
-      })
-      .catch(() => {
+      } catch {
         localStorage.removeItem("token");
         router.push("/auth/signin");
-      });
+      }
+    };
+
+    fetchData();
   }, [router]);
 
   const handleLogout = () => {
@@ -42,9 +55,33 @@ export default function ProfilePage() {
     router.push("/");
   };
 
+  const handleSavePreferences = async () => {
+    const token = localStorage.getItem("token");
+
+    await fetch(`${API_BASE}/update-preferences`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        favorite_team: favoriteTeam,
+        favorite_driver: favoriteDriver,
+      }),
+    });
+
+    setUser({
+      ...user,
+      favorite_team: favoriteTeam,
+      favorite_driver: favoriteDriver,
+    });
+
+    setShowModal(false);
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen text-white bg-black">
+      <div className="flex justify-center items-center min-h-screen bg-black text-white">
         Loading...
       </div>
     );
@@ -52,94 +89,129 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-12 relative overflow-hidden">
-      
-      {/* 🔥 Aggressive Red F1 Glow Background */}
+
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,0,0,0.15),transparent_70%)] animate-pulse pointer-events-none" />
 
       <div className="relative max-w-5xl mx-auto space-y-8">
 
-        {/* PROFILE HEADER */}
-        <div className="bg-zinc-900 border border-red-600 rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center shadow-lg">
+        {/* HEADER */}
+        <div className="bg-zinc-900 border border-red-600 rounded-2xl p-8 flex justify-between items-center">
 
-          <div className="flex items-center gap-6">
-            
-            {/* Avatar */}
-            <div className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center text-2xl font-bold shadow-[0_0_20px_rgba(255,0,0,0.6)]">
-              {user.email?.[0]?.toUpperCase()}
-            </div>
-
-            {/* Name + Email */}
-            <div>
-              <h1 className="text-3xl font-bold text-red-500">
-                {user.name || "F1 Racer"}
-              </h1>
-              <p className="text-gray-400">{user.email}</p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-red-500">
+              {user.name || "F1 Racer"}
+            </h1>
+            <p className="text-gray-400">{user.email}</p>
           </div>
 
-          {/* PRO Badge Section */}
-          <div className="mt-6 md:mt-0 relative">
-
+          <div className="relative">
             {user.plan === "PRO" && (
               <span className="absolute -top-4 -right-4 text-yellow-400 text-2xl">
                 👑
               </span>
             )}
-
             <span
               className={`px-4 py-2 rounded-full text-sm font-semibold ${
                 user.plan === "PRO"
-                  ? "bg-yellow-500 text-black shadow-[0_0_20px_rgba(255,215,0,0.8)]"
+                  ? "bg-yellow-500 text-black"
                   : "bg-red-600 text-white"
               }`}
             >
-              {user.plan || "FREE"}
+              {user.plan}
             </span>
           </div>
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+          <StatCard title="Predictions" value={stats?.total_predictions || 0} />
+          <StatCard title="Total Points" value={stats?.total_score || 0} />
+          <StatCard title="Best Score" value={stats?.best_score || 0} />
+          <StatCard
+            title="Accuracy"
+            value={`${stats?.accuracy_percentage || 0}%`}
+          />
 
         </div>
 
-        {/* STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 hover:border-red-600 transition">
-            <h3 className="text-gray-400 text-sm">Predictions Made</h3>
-            <p className="text-3xl font-bold mt-2">12</p>
-          </div>
+        {/* FAVORITES */}
+        <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700">
+          <h3 className="text-gray-400 text-sm">Favorite Team</h3>
+          <p className="text-xl font-bold mt-1">
+            {user.favorite_team || "Not Set"}
+          </p>
 
-          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 hover:border-red-600 transition">
-            <h3 className="text-gray-400 text-sm">Accuracy</h3>
-            <p className="text-3xl font-bold mt-2">78%</p>
-          </div>
-
-          <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 hover:border-red-600 transition">
-            <h3 className="text-gray-400 text-sm">Favorite Team</h3>
-            <p className="text-3xl font-bold mt-2">
-              {user.favorite_team || "Not Set"}
-            </p>
-          </div>
-
-        </div>
-
-        {/* ACTION BUTTONS */}
-        <div className="flex gap-4">
-
-          {user.plan !== "PRO" && (
-            <button className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition shadow-[0_0_20px_rgba(255,0,0,0.5)]">
-              Upgrade to Pro
-            </button>
-          )}
+          <h3 className="text-gray-400 text-sm mt-4">Favorite Driver</h3>
+          <p className="text-xl font-bold mt-1">
+            {user.favorite_driver || "Not Set"}
+          </p>
 
           <button
-            onClick={handleLogout}
-            className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-lg font-semibold transition"
+            onClick={() => setShowModal(true)}
+            className="mt-4 bg-red-600 px-4 py-2 rounded-lg"
           >
-            Logout
+            Edit Preferences
           </button>
-
         </div>
 
+        <button
+          onClick={handleLogout}
+          className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-lg"
+        >
+          Logout
+        </button>
+
       </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center">
+          <div className="bg-zinc-900 p-6 rounded-xl w-96 space-y-4">
+            <h2 className="text-xl font-bold text-red-500">
+              Edit Preferences
+            </h2>
+
+            <input
+              value={favoriteTeam}
+              onChange={(e) => setFavoriteTeam(e.target.value)}
+              placeholder="Favorite Team"
+              className="w-full p-2 bg-zinc-800 rounded"
+            />
+
+            <input
+              value={favoriteDriver}
+              onChange={(e) => setFavoriteDriver(e.target.value)}
+              placeholder="Favorite Driver"
+              className="w-full p-2 bg-zinc-800 rounded"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-700 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePreferences}
+                className="px-4 py-2 bg-red-600 rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ title, value }: any) {
+  return (
+    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700">
+      <h3 className="text-gray-400 text-sm">{title}</h3>
+      <p className="text-3xl font-bold mt-2">{value}</p>
     </div>
   );
 }

@@ -53,3 +53,7 @@ class PredictionCreate(BaseModel):
     predicted_p1: str
     predicted_p2: str
     predicted_p3: str
+
+class UpdatePreferences(BaseModel):
+    favorite_team: Optional[str] = None
+    favorite_driver: Optional[str] = None

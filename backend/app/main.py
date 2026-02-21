@@ -236,6 +236,26 @@ def prediction_history(
         "best_score": best_score,
         "accuracy_percentage": accuracy
     }
+
+@app.put("/update-preferences")
+def update_preferences(
+    favorite_team: str,
+    favorite_driver: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(models.User).filter(
+        models.User.id == current_user.id
+    ).first()
+
+    user.favorite_team = favorite_team
+    user.favorite_driver = favorite_driver
+
+    db.commit()
+
+    return {"message": "Preferences updated successfully"}
+
 @app.get("/")
 def root():
     return {"message": "F1 Backend Running 🚀"}
