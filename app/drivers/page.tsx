@@ -35,16 +35,9 @@ export default function DriversPage() {
     loadDrivers();
   }, [authLoading]);
 
-  const getDriverImage = (driver: Driver) => {
-    if (driver.image_url) return driver.image_url;
-
-    const fullName = `${driver.given_name}-${driver.family_name}`
-      .toLowerCase()
-      .replace(/ /g, "-");
-
-    return `/drivers/${fullName}.jpg`;
-  };
-
+const getDriverImage = (driver: Driver) => {
+  return driver.image_url || "/drivers/default.jpg";
+};
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-white">

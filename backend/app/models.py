@@ -43,6 +43,7 @@ class Driver(Base):
     given_name = Column(String)
     family_name = Column(String)
     nationality = Column(String)
+    image_url = Column(String, nullable=True)
 
 
 class Team(Base):

@@ -21,6 +21,7 @@ class Driver(BaseModel):
     given_name: str
     family_name: str
     nationality: str
+    image_url: Optional[str] = None
 
     class Config:
         from_attributes = True
