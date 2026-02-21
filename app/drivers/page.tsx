@@ -1,21 +1,15 @@
 "use client";
 
-import Navbar from "@/components/navbar";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 
 interface Driver {
   id: number;
-  name: string;
-  country: string;
-  number: number;
-  team: string;
-  championship: string;
-  wins: number;
-  podiums: number;
-  poles: number;
-  points_total: number;
+  given_name: string;
+  family_name: string;
+  nationality: string;
+  image_url?: string;
 }
 
 export default function DriversPage() {
@@ -41,110 +35,84 @@ export default function DriversPage() {
     loadDrivers();
   }, [authLoading]);
 
+  const getDriverImage = (driver: Driver) => {
+    if (driver.image_url) return driver.image_url;
+
+    const fullName = `${driver.given_name}-${driver.family_name}`
+      .toLowerCase()
+      .replace(/ /g, "-");
+
+    return `/drivers/${fullName}.jpg`;
+  };
+
   if (loading || authLoading) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-black flex items-center justify-center text-white">
-          Loading drivers...
-        </div>
-      </>
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        Loading drivers...
+      </div>
     );
   }
 
   return (
-    <>
-      <Navbar />
+    <div className="min-h-screen bg-black/90 pb-16">
+      <div className="max-w-7xl mx-auto px-6">
 
-      <div className="min-h-screen bg-black/90 pt-20 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            F1 DRIVERS
+          </h1>
+          <p className="text-xl text-gray-400">
+            Meet the drivers competing in Formula 1
+          </p>
+        </div>
 
-          <div className="mb-12">
-            <h1 className="text-5xl font-bold text-white mb-4">
-              F1 DRIVERS
-            </h1>
-            <p className="text-xl text-gray-400">
-              Meet the drivers competing in Formula 1
-            </p>
-          </div>
+        {/* Drivers Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {drivers.map((driver) => (
-              <div
-                key={driver.id}
-                className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-600/30 rounded-xl overflow-hidden hover:border-red-600/70 transition-all group"
-              >
+          {drivers.map((driver) => (
+            <div
+              key={driver.id}
+              className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-600/30 rounded-xl overflow-hidden hover:border-red-600/70 transition-all duration-300 group shadow-lg"
+            >
 
-                <div className="relative h-32 bg-gradient-to-r from-red-600 to-orange-600 flex items-center justify-center overflow-hidden">
-                  <div className="absolute text-8xl font-bold text-white/20">
-                    {driver.number}
-                  </div>
-                  <h2 className="text-2xl font-bold text-white text-center relative z-10">
-                    {driver.name}
+              {/* IMAGE */}
+              <div className="relative h-48 overflow-hidden">
+                <img
+                  src={getDriverImage(driver)}
+                  alt={`${driver.given_name} ${driver.family_name}`}
+                  onError={(e) =>
+                    ((e.target as HTMLImageElement).src =
+                      "/drivers/default.jpg")
+                  }
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+
+                <div className="absolute bottom-4 left-4">
+                  <h2 className="text-2xl font-bold text-white">
+                    {driver.given_name} {driver.family_name}
                   </h2>
+                  <p className="text-sm text-gray-300">
+                    🌍 {driver.nationality}
+                  </p>
                 </div>
-
-                <div className="p-6 space-y-4">
-
-                  <div>
-                    <p className="text-sm text-gray-400">
-                      🇺🇳 {driver.country}
-                    </p>
-                    <p className="text-sm font-semibold text-blue-400">
-                      {driver.team}
-                    </p>
-                  </div>
-
-                  <div className="bg-yellow-600/20 border border-yellow-600/50 rounded-lg p-3">
-                    <p className="text-sm text-yellow-400 font-bold">
-                      {driver.championship}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-800">
-
-                    <div className="bg-gray-800/50 rounded p-3">
-                      <p className="text-xs text-gray-500">Wins</p>
-                      <p className="text-2xl font-bold text-green-400">
-                        {driver.wins}
-                      </p>
-                    </div>
-
-                    <div className="bg-gray-800/50 rounded p-3">
-                      <p className="text-xs text-gray-500">Podiums</p>
-                      <p className="text-2xl font-bold text-blue-400">
-                        {driver.podiums}
-                      </p>
-                    </div>
-
-                    <div className="bg-gray-800/50 rounded p-3">
-                      <p className="text-xs text-gray-500">Poles</p>
-                      <p className="text-2xl font-bold text-purple-400">
-                        {driver.poles}
-                      </p>
-                    </div>
-
-                    <div className="bg-gray-800/50 rounded p-3">
-                      <p className="text-xs text-gray-500">Points</p>
-                      <p className="text-xl font-bold text-orange-400">
-                        {driver.points_total}
-                      </p>
-                    </div>
-
-                  </div>
-
-                  <button className="w-full mt-4 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700">
-                    View Profile
-                  </button>
-
-                </div>
-
               </div>
-            ))}
-          </div>
+
+              {/* Button */}
+              <div className="p-6">
+                <button className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition shadow-[0_0_10px_rgba(255,0,0,0.6)]">
+                  View Profile
+                </button>
+              </div>
+
+            </div>
+          ))}
 
         </div>
+
       </div>
-    </>
+    </div>
   );
 }
