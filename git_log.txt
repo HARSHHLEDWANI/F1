@@ -1,0 +1,3 @@
+e923736 Update .gitignore to exclude backend/venv and remove from index
+90c170f Fix prediction API, add /races endpoint, resolve frontend fetch and premium plan issues
+01afe25 fixed drivers page and completed everything

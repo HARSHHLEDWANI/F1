@@ -1,0 +1,45 @@
+# Next.js
+.next/
+out/
+
+# Node
+node_modules/
+
+# Env files
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Build / cache
+.cache/
+dist/
+build/
+
+# ML / data files
+data/
+models/
+*.csv
+*.pkl
+*.joblib
+*.parquet
+
+# Misc
+allfiles.txt
+structure.txt
+*.zip
+*.tar
+*.gz
+
+# OS
+.DS_Store
+Thumbs.dbbackend/venv/
+
+backend/venv
+# FastF1 cache
+*.sqlite
+*.ff1pkl
+
+ml-service/venv

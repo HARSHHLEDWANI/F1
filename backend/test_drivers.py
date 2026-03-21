@@ -1,0 +1,27 @@
+"""
+Test script to verify driver data in database
+"""
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+engine = create_engine(DATABASE_URL)
+
+try:
+    with engine.connect() as connection:
+        result = connection.execute(text("SELECT given_name, family_name, number, team, wins, podiums, poles, points_total FROM drivers ORDER BY wins DESC LIMIT 10"))
+        
+        print("Top drivers by wins:")
+        print("-" * 90)
+        print(f"{'Name':<25} | {'#':<3} | {'Team':<20} | {'W':<3} | {'P':<3} | {'PL':<3} | {'Pts':<4}")
+        print("-" * 90)
+        for row in result:
+            name = f"{row[0]} {row[1]}"
+            print(f"{name:<25} | {str(row[2]) or 'N/A':<3} | {(row[3] or 'TBA'):<20} | {row[4]:<3} | {row[5]:<3} | {row[6]:<3} | {row[7]:<4}")
+        
+except Exception as e:
+    print(f"Error: {e}")

@@ -1,0 +1,75 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: f1-predictor-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-f1_db}
+      POSTGRES_USER: ${DB_USER:-f1admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-f1secure}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-f1admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - f1-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: f1-predictor-api
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-f1admin}:${DB_PASSWORD:-f1secure}@postgres:5432/${DB_NAME:-f1_db}
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/models:/app/models
+      - ./backend/logs:/app/logs
+    networks:
+      - f1-network
+    restart: unless-stopped
+
+  # Optional: ML Training Service (runs periodically)
+  ml-trainer:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: f1-predictor-trainer
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-f1admin}:${DB_PASSWORD:-f1secure}@postgres:5432/${DB_NAME:-f1_db}
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/models:/app/models
+      - ./backend/logs:/app/logs
+    networks:
+      - f1-network
+    # Command runs training once, then exits
+    # Can be triggered via cron or scheduling service
+    entrypoint: python train_model.py --database-url postgresql://${DB_USER:-f1admin}:${DB_PASSWORD:-f1secure}@postgres:5432/${DB_NAME:-f1_db} --output models/
+    # Normally run manually: docker-compose run ml-trainer
+    profiles:
+      - manual-train
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  f1-network:
+    driver: bridge

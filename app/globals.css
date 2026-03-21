@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #050508;
+  --foreground: #f5f5f5;
+  --f1-red: #FF1E00;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(15, 15, 18, 0.6);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-f1-red: var(--f1-red);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background-color: #050508;
+  color: var(--foreground);
+  /* Replacing grain with a smooth, deep radial glow */
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(220, 38, 38, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.05) 0%, transparent 40%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Glassmorphism Utility */
+.glass-card {
+  background: rgba(18, 18, 20, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Tactile Button Effect */
+.btn-tactile {
+  box-shadow: 
+    inset 0 1px 1px rgba(255,255,255,0.1),
+    0 4px 6px rgba(0,0,0,0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-tactile:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #050508; }
+::-webkit-scrollbar-thumb {
+  background: var(--f1-red);
+  border-radius: 10px;
+}

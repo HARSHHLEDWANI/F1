@@ -1,0 +1,291 @@
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from datetime import date
+
+from .database import engine, SessionLocal, get_db
+from . import models, schemas
+from .auth import hash_password, verify_password, create_access_token
+from .dependencies import get_current_user
+
+from fastapi.middleware.cors import CORSMiddleware
+from app.routes import f1
+from app.routes import profile
+from app.schemas import PredictionCreate
+from sqlalchemy import text , func
+from app.routes import prediction
+
+app = FastAPI()
+
+# ⭐ Create tables
+models.Base.metadata.create_all(bind=engine)
+
+# ⭐ Include API routes
+app.include_router(f1.router)
+app.include_router(profile.router)
+app.include_router(prediction.router)
+
+# ⭐ CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.post("/signup")
+def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(models.User.email == user.email).first()
+
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    new_user = models.User(
+        email=user.email,
+        hashed_password=hash_password(user.password),
+        is_pro=False
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {"message": "User created successfully"}
+
+
+@app.post("/login")
+def login(form_data: OAuth2PasswordRequestForm = Depends(),
+          db: Session = Depends(get_db)):
+
+    db_user = db.query(models.User).filter(
+        models.User.email == form_data.username
+    ).first()
+
+    if not db_user or not verify_password(form_data.password, db_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token({"sub": db_user.email})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+
+@app.post("/predict")
+def predict(
+    prediction: PredictionCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(models.User).filter(
+        models.User.id == current_user.id
+    ).first()
+
+    today = date.today()
+
+    if not user.last_prediction_date or user.last_prediction_date != today:
+        user.predictions_today = 0
+        user.last_prediction_date = today
+
+    limit = 25 if user.plan == "PRO" else 3
+
+    if user.predictions_today >= limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Daily prediction limit reached ({limit})"
+        )
+
+    # 🚫 Prevent duplicate race prediction
+    existing = db.query(models.Prediction).filter(
+        models.Prediction.user_id == user.id,
+        models.Prediction.season == prediction.season,
+        models.Prediction.round == prediction.round
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="You already predicted this race"
+        )
+
+    # 🚫 Prevent duplicate drivers
+    drivers = [
+        prediction.predicted_p1,
+        prediction.predicted_p2,
+        prediction.predicted_p3
+    ]
+
+    if len(set(drivers)) != 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Drivers must be unique"
+        )
+
+    new_prediction = models.Prediction(
+        user_id=user.id,
+        season=prediction.season,
+        round=prediction.round,
+        predicted_p1=prediction.predicted_p1,
+        predicted_p2=prediction.predicted_p2,
+        predicted_p3=prediction.predicted_p3
+    )
+
+    db.add(new_prediction)
+
+    user.predictions_today += 1
+    db.commit()
+
+    return {
+        "message": "Prediction saved",
+        "remaining_predictions": limit - user.predictions_today
+    }
+@app.post("/calculate-results")
+def calculate_results(
+    season: int,
+    round: int,
+    db: Session = Depends(get_db)
+):
+    actual_results = db.execute(
+    text("""
+        SELECT driver_ref, position
+        FROM race_results
+        WHERE season = :season
+        AND round = :round
+        AND position <= 3
+    """),
+    {"season": season, "round": round}
+    ).fetchall()
+
+    if len(actual_results) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Podium data not complete for this race"
+        )
+
+    actual_podium = {row.position: row.driver_ref for row in actual_results}
+
+    predictions = db.query(models.Prediction).filter(
+        models.Prediction.season == season,
+        models.Prediction.round == round
+    ).all()
+
+    if not predictions:
+        return {"message": "No predictions found for this race"}
+
+    for pred in predictions:
+        score = 0
+
+        # Position 1
+        if pred.predicted_p1 == actual_podium.get(1):
+            score += 3
+        elif pred.predicted_p1 in actual_podium.values():
+            score += 1
+
+        # Position 2
+        if pred.predicted_p2 == actual_podium.get(2):
+            score += 3
+        elif pred.predicted_p2 in actual_podium.values():
+            score += 1
+
+        # Position 3
+        if pred.predicted_p3 == actual_podium.get(3):
+            score += 3
+        elif pred.predicted_p3 in actual_podium.values():
+            score += 1
+
+        pred.score = score
+
+    db.commit()
+
+    return {
+        "message": "Scores calculated successfully",
+        "predictions_scored": len(predictions)
+    }
+
+@app.get("/prediction-history")
+def prediction_history(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    stats = db.query(
+        func.count(models.Prediction.id).label("total_predictions"),
+        func.sum(models.Prediction.score).label("total_score"),
+        func.avg(models.Prediction.score).label("avg_score"),
+        func.max(models.Prediction.score).label("best_score")
+    ).filter(
+        models.Prediction.user_id == current_user.id
+    ).first()
+
+    total_predictions = stats.total_predictions or 0
+    total_score = stats.total_score or 0
+    avg_score = float(stats.avg_score or 0)
+    best_score = stats.best_score or 0
+
+    # Max possible per race = 9
+    accuracy = 0
+    if total_predictions > 0:
+        accuracy = round((avg_score / 9) * 100, 2)
+
+    return {
+        "total_predictions": total_predictions,
+        "total_score": total_score,
+        "average_score": round(avg_score, 2),
+        "best_score": best_score,
+        "accuracy_percentage": accuracy
+    }
+
+
+@app.get("/")
+def root():
+    return {"message": "F1 Backend Running 🚀"}
+
+@app.put("/update-preferences")
+def update_preferences(
+    preferences: schemas.UpdatePreferences,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(models.User).filter(
+        models.User.id == current_user.id
+    ).first()
+
+    if preferences.favorite_team is not None:
+        user.favorite_team = preferences.favorite_team
+
+    if preferences.favorite_driver is not None:
+        user.favorite_driver = preferences.favorite_driver
+
+    db.commit()
+
+    return {
+        "message": "Preferences updated successfully",
+        "favorite_team": user.favorite_team,
+        "favorite_driver": user.favorite_driver
+    }
+
+
+@app.get("/races/{race_id}")
+def get_race(race_id: int,
+             current_user: models.User = Depends(get_current_user),
+             db: Session = Depends(get_db)):
+
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+
+    if not race:
+        raise HTTPException(status_code=404, detail="Race not found")
+
+    today = date.today()
+
+    if not current_user.is_pro and race.race_date == today:
+        raise HTTPException(
+            status_code=403,
+            detail="Free users can view race details only after 1 day. Upgrade to Pro."
+        )
+
+    return race
