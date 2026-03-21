@@ -509,7 +509,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/username/f1-predictor/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/username/f1-predictor/discussions)
-- **Email**: support@f1predictor.com
+- **Email**: ledwani830@gmail.com
 
 ---
 
