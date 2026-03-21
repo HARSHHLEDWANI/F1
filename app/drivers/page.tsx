@@ -33,16 +33,20 @@ useEffect(() => {
   const loadDrivers = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/drivers"); // Ensure this endpoint exists in f1.router
-      console.log("Fetched Drivers:", data); // Check your console to see the structure!
+      const data = await apiFetch("/drivers");
+      console.log("Fetched Drivers:", data);
       setDrivers(data);
     } catch (err) {
-      console.error("Auth Error:", err.message);
-      // If it's a 401, you might want to redirect to sign-in
+      if (err instanceof Error) {
+        console.error("Auth Error:", err.message);
+      } else {
+        console.error("Auth Error:", err);
+      }
     } finally {
       setLoading(false);
     }
   };
+
   loadDrivers();
 }, []);
 
