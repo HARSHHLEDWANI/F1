@@ -11,12 +11,32 @@ export function useUserTier() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    // 🚨 CRITICAL FIX: skip API if not logged in
+    if (!token) {
+      setTier("free");
+      setLoading(false);
+      return;
+    }
+
     const fetchTier = async () => {
       try {
-        const user = await apiFetch("/profile"); // ✅ sends Bearer token
-        setTier(user.plan && user.plan.toUpperCase() === "PRO" ? "pro" : "free");
+        const res = await apiFetch("/profile");
+
+        if (!res.ok) {
+          throw new Error("Unauthorized");
+        }
+
+        const user = await res.json();
+
+        setTier(
+          user.plan && user.plan.toUpperCase() === "PRO"
+            ? "pro"
+            : "free"
+        );
+
       } catch (err) {
-        // If authentication fails, user is not logged in - this is OK
         console.log("User not authenticated, showing free tier");
         setTier("free");
         setError(null);

@@ -5,9 +5,9 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useUserTier } from "@/hooks/useUserTier";
 import { apiFetch } from "@/lib/api";
-import { 
-  Menu, X, Zap, Users, Trophy, Map, 
-  Cpu, User, LogOut, ChevronRight 
+import {
+  Menu, X, Zap, Users, Trophy, Map,
+  Cpu, User, LogOut, ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -18,20 +18,36 @@ export default function Navbar() {
   const pathname = usePathname();
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    // 🚨 CRITICAL FIX: do nothing if not logged in
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
     const fetchUser = async () => {
       try {
-        const userData = await apiFetch("/profile");
+        const res = await apiFetch("/profile");
+
+        // handle response safely
+        if (!res.ok) {
+          throw new Error("Unauthorized");
+        }
+
+        const userData = await res.json();
         setUser(userData);
       } catch (err) {
+        console.error("Profile fetch failed");
         setUser(null);
       }
     };
+
     fetchUser();
-    setIsMenuOpen(false); // Close mobile menu on route change
+    setIsMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = async () => {
-    // For JWT, just remove the token from localStorage
+  const handleLogout = () => {
     localStorage.removeItem("token");
     setUser(null);
     window.location.href = "/auth/signin";
@@ -48,7 +64,7 @@ export default function Navbar() {
     <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-[100]">
       <div className="glass-card rounded-2xl border border-white/10 px-4 md:px-8 py-3 transition-all duration-300">
         <div className="flex justify-between items-center">
-          
+
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
             <div className="bg-red-600 p-2 rounded-lg rotate-[-10deg] group-hover:rotate-0 transition-transform">
@@ -69,8 +85,8 @@ export default function Navbar() {
                   key={link.name}
                   href={link.href}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
-                    isActive 
-                      ? "text-white bg-white/10 shadow-[inset_0_0_10px_rgba(255,255,255,0.05)]" 
+                    isActive
+                      ? "text-white bg-white/10"
                       : "text-neutral-400 hover:text-white hover:bg-white/5"
                   }`}
                 >
@@ -86,21 +102,23 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center gap-3 pl-4 border-l border-white/10">
                 <div className="hidden lg:flex flex-col items-end">
-                  <span className="text-xs font-bold text-white leading-none mb-1">
-                    {user.name?.split(' ')[0] || "User"}
+                  <span className="text-xs font-bold text-white">
+                    {user.email || "User"}
                   </span>
-                  <span className={`text-[10px] uppercase font-black tracking-widest ${tier === 'pro' ? 'text-yellow-400' : 'text-neutral-500'}`}>
-                    {tierLoading ? "..." : tier === 'pro' ? "Pro Member" : "Free Tier"}
+                  <span className={`text-[10px] uppercase font-black ${
+                    tier === "pro" ? "text-yellow-400" : "text-neutral-500"
+                  }`}>
+                    {tierLoading ? "..." : tier === "pro" ? "Pro Member" : "Free Tier"}
                   </span>
                 </div>
-                
-                <Link href="/profile" className="p-2 hover:bg-white/5 rounded-full transition-colors">
-                  <User size={18} className="text-neutral-400 hover:text-white" />
+
+                <Link href="/profile" className="p-2 hover:bg-white/5 rounded-full">
+                  <User size={18} />
                 </Link>
 
-                <button 
+                <button
                   onClick={handleLogout}
-                  className="p-2 hover:bg-red-500/10 rounded-full transition-colors text-neutral-400 hover:text-red-500"
+                  className="p-2 hover:bg-red-500/10 rounded-full text-neutral-400 hover:text-red-500"
                 >
                   <LogOut size={18} />
                 </button>
@@ -108,7 +126,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/auth/signin"
-                className="btn-tactile bg-red-600 text-white px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-700"
+                className="bg-red-600 text-white px-5 py-2 rounded-xl text-xs font-black uppercase hover:bg-red-700"
               >
                 Connect API
               </Link>
@@ -125,14 +143,14 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="md:hidden mt-2 glass-card rounded-2xl border border-white/10 p-4 space-y-2 overflow-hidden shadow-2xl"
+            className="md:hidden mt-2 glass-card rounded-2xl border border-white/10 p-4 space-y-2"
           >
             {navLinks.map((link) => (
               <Link
@@ -144,18 +162,9 @@ export default function Navbar() {
                   <link.icon size={18} />
                   {link.name}
                 </div>
-                <ChevronRight size={14} className="text-neutral-600" />
+                <ChevronRight size={14} />
               </Link>
             ))}
-            
-            {tier !== "pro" && user && (
-              <Link
-                href="/upgrade"
-                className="flex items-center justify-center gap-2 p-3 mt-4 rounded-xl bg-yellow-400 text-black font-black text-xs uppercase"
-              >
-                Upgrade to Pro Access
-              </Link>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
