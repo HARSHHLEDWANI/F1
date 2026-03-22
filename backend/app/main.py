@@ -18,7 +18,7 @@ from app.routes import prediction
 app = FastAPI()
 
 # ⭐ Create tables
-models.Base.metadata.create_all(bind=engine)
+#models.Base.metadata.create_all(bind=engine)
 
 # ⭐ Include API routes
 app.include_router(f1.router)
