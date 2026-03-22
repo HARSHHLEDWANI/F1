@@ -28,7 +28,7 @@ app.include_router(prediction.router)
 # ⭐ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000","https://f1-theta-seven.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
