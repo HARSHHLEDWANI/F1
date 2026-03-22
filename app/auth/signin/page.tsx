@@ -14,42 +14,40 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleEmailAuth = async () => {
-  setIsLoading(true);
-  setError(null);
+    setIsLoading(true);
+    setError(null);
 
-  try {
-    if (!email || !password) {
-      setError("Please enter both email and password.");
-      setIsLoading(false);
-      return;
-    }
-
-    // ✅ Always clear old token first
-    localStorage.removeItem("token");
-
-    let res;
-
-    // 🟢 REGISTER
-    if (mode === "register") {
-      res = await fetch(`${API_BASE}/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          name: name.trim() || "",
-        }),
-      });
-
-      const registerData = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        setError(registerData?.detail || "Registration failed");
+    try {
+      if (!email || !password) {
+        setError("Please enter both email and password.");
         setIsLoading(false);
         return;
       }
 
-      // ⭐ Auto login after register
+      localStorage.removeItem("token");
+
+      // ================= REGISTER =================
+      if (mode === "register") {
+        const res = await fetch(`${API_BASE}/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            name: name.trim() || "",
+          }),
+        });
+
+        const registerData = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          setError(registerData?.detail || "Registration failed");
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // ================= LOGIN =================
       const loginRes = await fetch(`${API_BASE}/login`, {
         method: "POST",
         headers: {
@@ -63,45 +61,25 @@ export default function SignInPage() {
 
       const loginData = await loginRes.json();
 
-      if (loginData?.access_token) {
-        localStorage.setItem("token", loginData.access_token);
+      // ❌ VERY IMPORTANT FIX
+      if (!loginRes.ok || !loginData?.access_token) {
+        setError("Invalid email or password");
+        setIsLoading(false);
+        return;
       }
 
-    } else {
-      // 🔵 LOGIN
-      res = await fetch(`${API_BASE}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          username: email.trim(),
-          password,
-        }).toString(),
-      });
+      // ✅ store token
+      localStorage.setItem("token", loginData.access_token);
 
-      const data = await res.json();
-      if (res.ok) {
-        localStorage.setItem("token", data.access_token); // This is what apiFetch looks for
-        window.location.href = "/"; 
-      }
+      // ✅ redirect
+      window.location.href = "/";
 
-      // ✅ Store token
-      if (data?.access_token) {
-        localStorage.setItem("token", data.access_token);
-      }
+    } catch (err) {
+      console.error(err);
+      setError("Server unreachable.");
+      setIsLoading(false);
     }
-
-    // redirect after success
-    window.location.href = "/";
-
-  } catch (err) {
-    console.error(err);
-    setError("Server unreachable. Make sure backend is running.");
-    setIsLoading(false);
-  }
-};
-
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-red-900 to-black p-4">
@@ -116,7 +94,6 @@ export default function SignInPage() {
           </p>
         </div>
 
-        {/* Tabs */}
         <div className="flex mb-8 rounded-lg bg-black/40 p-1 border border-white/5">
           <button
             onClick={() => setMode("login")}
