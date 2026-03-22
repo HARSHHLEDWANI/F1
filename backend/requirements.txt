@@ -16,3 +16,4 @@ numpy==1.26.2
 # Additional utilities
 python-dotenv==1.0.0
 requests==2.31.0
+email-validator
