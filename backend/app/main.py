@@ -72,12 +72,19 @@ def login(
     db: Session = Depends(get_db)
 ):
     try:
+        print("LOGIN ATTEMPT:", form_data.username)
+
         db_user = db.query(models.User).filter(
             models.User.email == form_data.username
         ).first()
 
+        print("DB USER:", db_user)
+
         if not db_user:
             raise HTTPException(status_code=401, detail="User not found")
+
+        print("HASHED:", db_user.hashed_password)
+        print("INPUT PASSWORD:", form_data.password)
 
         if not verify_password(form_data.password, db_user.hashed_password):
             raise HTTPException(status_code=401, detail="Invalid password")
@@ -90,8 +97,8 @@ def login(
         }
 
     except Exception as e:
-        print("LOGIN ERROR:", e)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        print("🔥 LOGIN ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ================= PREDICT =================
