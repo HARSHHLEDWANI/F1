@@ -1,4 +1,4 @@
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://f1-fhh4.onrender.com").replace(/\/+$/, "");
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
