@@ -128,6 +128,7 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -137,10 +138,22 @@ export default function TeamsPage() {
           apiFetch("/teams"),
           apiFetch("/drivers"),
         ]);
-        setTeams(Array.isArray(teamsData) ? teamsData : [teamsData]);
-        setDrivers(Array.isArray(driversData) ? driversData : [driversData]);
+
+        const teamsList = Array.isArray(teamsData) ? teamsData : [];
+        const driversList = Array.isArray(driversData) ? driversData : [];
+
+        setTeams(teamsList);
+        setDrivers(driversList);
+
+        if (!teamsList.length || !driversList.length) {
+          setError("No teams or drivers found. Please seed backend data.");
+        } else {
+          setError(null);
+        }
       } catch (err) {
-        console.error("Error loading data:", err);
+        const message = err instanceof Error ? err.message : "Unable to load teams";
+        console.error("Error loading data:", message);
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -175,6 +188,24 @@ export default function TeamsPage() {
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
+        <p className="text-xl mb-4">{error}</p>
+        <p className="text-sm text-gray-400">Reload after confirming backend seed data exists.</p>
+      </div>
+    );
+  }
+
+  if (!teams.length) {
+    return (
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
+        <p className="text-xl mb-2">No teams available yet.</p>
+        <p className="text-sm text-gray-400">Run backend data loaders to populate teams.</p>
       </div>
     );
   }

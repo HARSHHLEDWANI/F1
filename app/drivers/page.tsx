@@ -28,6 +28,7 @@ export default function DriversPage() {
   const { loading: authLoading } = useAuth();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
 useEffect(() => {
   const loadDrivers = async () => {
@@ -35,13 +36,17 @@ useEffect(() => {
       setLoading(true);
       const data = await apiFetch("/drivers");
       console.log("Fetched Drivers:", data);
-      setDrivers(data);
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Auth Error:", err.message);
+      const list = Array.isArray(data) ? data : [];
+      setDrivers(list);
+      if (!list.length) {
+        setError("No drivers found. Please ensure the backend has driver data.");
       } else {
-        console.error("Auth Error:", err);
+        setError(null);
       }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load drivers";
+      console.error("Drivers fetch error:", message);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -54,6 +59,24 @@ useEffect(() => {
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
+        <p className="text-xl mb-4">{error}</p>
+        <p className="text-sm text-gray-400">Reload the page after confirming the backend data is present.</p>
+      </div>
+    );
+  }
+
+  if (!drivers.length) {
+    return (
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
+        <p className="text-xl mb-2">No drivers available yet.</p>
+        <p className="text-sm text-gray-400">Run backend data loader scripts to populate drivers.</p>
       </div>
     );
   }

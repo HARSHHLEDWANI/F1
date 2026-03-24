@@ -27,6 +27,7 @@ export default function TracksPage() {
   const { loading: authLoading } = useAuth();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadTracks = async () => {
@@ -34,9 +35,17 @@ export default function TracksPage() {
         setLoading(true);
         const data = await apiFetch("/tracks");
         console.log("Fetched Tracks:", data);
-        setTracks(data);
+        const list = Array.isArray(data) ? data : [];
+        setTracks(list);
+        if (!list.length) {
+          setError("No tracks found. Please seed tracks in backend.");
+        } else {
+          setError(null);
+        }
       } catch (err) {
-        console.error("Error loading tracks:", err);
+        const message = err instanceof Error ? err.message : "Unable to load tracks";
+        console.error("Error loading tracks:", message);
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -48,6 +57,24 @@ export default function TracksPage() {
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
+        <p className="text-xl mb-4">{error}</p>
+        <p className="text-sm text-gray-400">Reload after confirming the backend dataset is loaded.</p>
+      </div>
+    );
+  }
+
+  if (!tracks.length) {
+    return (
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
+        <p className="text-xl mb-2">No tracks available yet.</p>
+        <p className="text-sm text-gray-400">Run backend load scripts to seed track data.</p>
       </div>
     );
   }

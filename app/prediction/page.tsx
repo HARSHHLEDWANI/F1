@@ -41,6 +41,7 @@ export default function PredictionPage() {
   const [drivers, setDrivers] = useState<DriverLookup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // ✅ Load races + drivers after auth
   useEffect(() => {
@@ -53,15 +54,24 @@ export default function PredictionPage() {
           apiFetch("/drivers"),
         ]);
 
-        setRaces(racesData);
-        setDrivers(driversData);
+        const racesList = Array.isArray(racesData) ? racesData : [];
+        const driversList = Array.isArray(driversData) ? driversData : [];
 
-        if (selectedRaceIdx === null && racesData.length > 0) {
+        setRaces(racesList);
+        setDrivers(driversList);
+
+        if (!racesList.length || !driversList.length) {
+          setFetchError("No races or drivers available. Seed backend data first.");
+        } else {
+          setFetchError(null);
+        }
+
+        if (selectedRaceIdx === null && racesList.length > 0) {
           setSelectedRaceIdx(0);
         }
       } catch (err: any) {
         console.error(err);
-        setError("Unable to load prediction data");
+        setFetchError(err?.message || "Unable to load prediction data");
       }
     };
 
@@ -117,6 +127,30 @@ export default function PredictionPage() {
         <Navbar />
         <div className="min-h-screen bg-black flex items-center justify-center text-white">
           Loading predictions...
+        </div>
+      </>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6">
+          <h2 className="text-2xl font-bold mb-2">{fetchError}</h2>
+          <p className="text-sm text-gray-300">Please populate races/drivers data in backend.</p>
+        </div>
+      </>
+    );
+  }
+
+  if (!races.length) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6">
+          <h2 className="text-2xl font-bold mb-2">No races found</h2>
+          <p className="text-sm text-gray-300">Check backend data loader script.</p>
         </div>
       </>
     );
