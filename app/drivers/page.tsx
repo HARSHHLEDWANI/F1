@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { motion } from "framer-motion";
 import { Trophy, Target, Star, ChevronRight } from "lucide-react";
+import DataSeedHint from "@/components/DataSeedHint";
 
 interface Driver {
   id: number;
@@ -65,19 +66,21 @@ useEffect(() => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
-        <p className="text-xl mb-4">{error}</p>
-        <p className="text-sm text-gray-400">Reload the page after confirming the backend data is present.</p>
-      </div>
+      <DataSeedHint
+        title="No teams or drivers found. Please seed backend data."
+        message="Check your backend and run the seed scripts, then reload."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
   if (!drivers.length) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
-        <p className="text-xl mb-2">No drivers available yet.</p>
-        <p className="text-sm text-gray-400">Run backend data loader scripts to populate drivers.</p>
-      </div>
+      <DataSeedHint
+        title="No drivers available yet"
+        message="Run backend scripts and reload to populate drivers."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 

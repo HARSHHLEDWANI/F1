@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { motion } from "framer-motion";
 import { MapPin, Zap, TrendingUp, ChevronRight } from "lucide-react";
+import DataSeedHint from "@/components/DataSeedHint";
 
 interface Track {
   id: number;
@@ -63,19 +64,21 @@ export default function TracksPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
-        <p className="text-xl mb-4">{error}</p>
-        <p className="text-sm text-gray-400">Reload after confirming the backend dataset is loaded.</p>
-      </div>
+      <DataSeedHint
+        title="No teams or tracks found. Please seed backend data."
+        message="Check your backend and run the seed scripts, then reload."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
   if (!tracks.length) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
-        <p className="text-xl mb-2">No tracks available yet.</p>
-        <p className="text-sm text-gray-400">Run backend load scripts to seed track data.</p>
-      </div>
+      <DataSeedHint
+        title="No tracks available yet"
+        message="Run backend scripts and reload to populate tracks."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 

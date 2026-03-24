@@ -1,6 +1,7 @@
 "use client";
 
 import Navbar from "@/components/navbar";
+import DataSeedHint from "@/components/DataSeedHint";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
@@ -136,10 +137,11 @@ export default function PredictionPage() {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6">
-          <h2 className="text-2xl font-bold mb-2">{fetchError}</h2>
-          <p className="text-sm text-gray-300">Please populate races/drivers data in backend.</p>
-        </div>
+        <DataSeedHint
+          title="No races or drivers available. Seed backend data first."
+          message="Check your backend data and run the seed scripts, then reload."
+          onRetry={() => window.location.reload()}
+        />
       </>
     );
   }

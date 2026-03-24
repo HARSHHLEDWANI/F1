@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { motion } from "framer-motion";
 import { Users, Trophy, Zap, ChevronRight } from "lucide-react";
+import DataSeedHint from "@/components/DataSeedHint";
 
 interface Driver {
   id: number;
@@ -194,19 +195,21 @@ export default function TeamsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
-        <p className="text-xl mb-4">{error}</p>
-        <p className="text-sm text-gray-400">Reload after confirming backend seed data exists.</p>
-      </div>
+      <DataSeedHint
+        title="No teams or drivers found. Please seed backend data."
+        message="Check your backend and run the seed scripts, then reload."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
   if (!teams.length) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center p-6">
-        <p className="text-xl mb-2">No teams available yet.</p>
-        <p className="text-sm text-gray-400">Run backend data loaders to populate teams.</p>
-      </div>
+      <DataSeedHint
+        title="No teams available yet"
+        message="Run backend scripts and reload to populate teams."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
