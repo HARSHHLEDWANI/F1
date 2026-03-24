@@ -11,9 +11,13 @@ export function useAuth() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        await apiFetch("/me"); // ✅ sends Bearer token
+        const user = await apiFetch("/profile");
+
+        if (!user || !user.email) {
+          throw new Error("No user data");
+        }
       } catch (err) {
-        console.warn("User not authenticated");
+        console.warn("User not authenticated", err);
         router.replace("/auth/signin");
       } finally {
         setLoading(false);
