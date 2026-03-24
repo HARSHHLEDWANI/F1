@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { apiFetch } from "@/lib/api";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -24,26 +23,20 @@ export default function ProfilePage() {
 
     const fetchData = async () => {
       try {
-        const profileRes = await fetch(`${API_BASE}/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const profileData = await apiFetch("/profile");
 
-        const profileData = await profileRes.json();
         setUser(profileData);
         setFavoriteTeam(profileData.favorite_team || "");
         setFavoriteDriver(profileData.favorite_driver || "");
 
-        const statsRes = await fetch(`${API_BASE}/prediction-history`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const statsData = await statsRes.json();
+        const statsData = await apiFetch("/prediction-history");
         setStats(statsData);
 
         setLoading(false);
-      } catch {
+      } catch (err) {
+        console.error("Failed to load profile", err);
         localStorage.removeItem("token");
-        router.push("/auth/signin");
+        router.replace("/auth/signin");
       }
     };
 
@@ -56,27 +49,27 @@ export default function ProfilePage() {
   };
 
   const handleSavePreferences = async () => {
-    const token = localStorage.getItem("token");
+    try {
+      const updateData = await apiFetch("/update-preferences", {
+        method: "PUT",
+        body: JSON.stringify({
+          favorite_team: favoriteTeam,
+          favorite_driver: favoriteDriver,
+        }),
+      });
 
-    await fetch(`${API_BASE}/update-preferences`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        favorite_team: favoriteTeam,
-        favorite_driver: favoriteDriver,
-      }),
-    });
+      setUser({
+        ...user,
+        favorite_team: updateData.favorite_team || favoriteTeam,
+        favorite_driver: updateData.favorite_driver || favoriteDriver,
+      });
 
-    setUser({
-      ...user,
-      favorite_team: favoriteTeam,
-      favorite_driver: favoriteDriver,
-    });
-
-    setShowModal(false);
+      setShowModal(false);
+    } catch (err) {
+      console.error("Failed to save preferences", err);
+      localStorage.removeItem("token");
+      router.replace("/auth/signin");
+    }
   };
 
   if (loading) {

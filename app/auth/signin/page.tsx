@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://f1-fhh4.onrender.com";
+import { apiFetch } from "@/lib/api";
 
 export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -28,50 +26,43 @@ export default function SignInPage() {
 
       // ================= REGISTER =================
       if (mode === "register") {
-        const res = await fetch(`${API_BASE}/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: email.trim(),
-            password,
-            name: name.trim() || "",
-          }),
-        });
-
-        const registerData = await res.json().catch(() => null);
-
-        if (!res.ok) {
-          setError(registerData?.detail || "Registration failed");
-          setIsLoading(false);
-          return;
-        }
+        await apiFetch(
+          "/signup",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              email: email.trim(),
+              password,
+              name: name.trim() || "",
+            }),
+          },
+          { skipAuth: true }
+        );
       }
 
       // ================= LOGIN =================
-      const loginRes = await fetch(`${API_BASE}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+      const loginData = await apiFetch(
+        "/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            username: email.trim(),
+            password,
+          }).toString(),
         },
-        body: new URLSearchParams({
-          username: email.trim(),
-          password,
-        }).toString(),
-      });
+        { skipAuth: true }
+      );
 
-      const loginData = await loginRes.json();
-
-      // ❌ VERY IMPORTANT FIX
-      if (!loginRes.ok || !loginData?.access_token) {
+      if (!loginData?.access_token) {
         setError("Invalid email or password");
         setIsLoading(false);
         return;
       }
 
-      // ✅ store token
       localStorage.setItem("token", loginData.access_token);
-
-      // ✅ redirect
       window.location.href = "/";
 
     } catch (err) {

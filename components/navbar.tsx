@@ -28,17 +28,10 @@ export default function Navbar() {
 
     const fetchUser = async () => {
       try {
-        const res = await apiFetch("/profile");
-
-        // handle response safely
-        if (!res.ok) {
-          throw new Error("Unauthorized");
-        }
-
-        const userData = await res.json();
+        const userData = await apiFetch("/profile");
         setUser(userData);
       } catch (err) {
-        console.error("Profile fetch failed");
+        console.error("Profile fetch failed", err);
         setUser(null);
       }
     };

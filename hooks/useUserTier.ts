@@ -11,9 +11,8 @@ export function useUserTier() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    // 🚨 CRITICAL FIX: skip API if not logged in
     if (!token) {
       setTier("free");
       setLoading(false);
@@ -22,22 +21,11 @@ export function useUserTier() {
 
     const fetchTier = async () => {
       try {
-        const res = await apiFetch("/profile");
+        const user = await apiFetch("/profile");
 
-        if (!res.ok) {
-          throw new Error("Unauthorized");
-        }
-
-        const user = await res.json();
-
-        setTier(
-          user.plan && user.plan.toUpperCase() === "PRO"
-            ? "pro"
-            : "free"
-        );
-
+        setTier(user?.plan?.toUpperCase() === "PRO" ? "pro" : "free");
       } catch (err) {
-        console.log("User not authenticated, showing free tier");
+        console.warn("User not authenticated, showing free tier", err);
         setTier("free");
         setError(null);
       } finally {
