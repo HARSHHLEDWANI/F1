@@ -103,7 +103,7 @@ def login(
 
 
 # ================= PREDICT =================
-@app.post("/seed")
+@app.get("/seed")
 def run_seed(secret: str):
     if secret != "harsh123":
         return {"error": "unauthorized"}
