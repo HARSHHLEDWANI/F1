@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import f1, profile, prediction
 from app.schemas import PredictionCreate
 from sqlalchemy import text, func
+from app.seed import seed_all
 
 app = FastAPI()
 
