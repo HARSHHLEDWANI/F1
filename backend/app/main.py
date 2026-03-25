@@ -107,7 +107,11 @@ def login(
 def run_seed(secret: str):
     if secret != "harsh123":
         return {"error": "unauthorized"}
+
+    from app.seed import seed_all
     seed_all()
+
+    return {"message": "SEED COMPLETED ✅"}
 
 @app.post("/predict")
 def predict(
