@@ -7,10 +7,8 @@ def seed_all():
     try:
         print("🌱 Seeding database...")
 
-        # 🚨 prevent duplicate
-        if db.query(models.Driver).count() > 0:
-            print("✅ Already seeded")
-            return
+        # 🔥 CLEAR OLD DATA FIRST
+        db.query(models.Driver).delete()
 
         # ================= DRIVERS =================
         drivers = [
@@ -27,43 +25,6 @@ def seed_all():
                 family_name=f,
                 nationality=n
             ))
-
-        # ================= TEAMS =================
-        if hasattr(models, "Team"):
-            teams = ["Red Bull", "Mercedes", "Ferrari", "McLaren"]
-
-            for t in teams:
-                db.add(models.Team(name=t))
-
-        # ================= TRACKS =================
-        if hasattr(models, "Track"):
-            tracks = [
-                ("Monaco Circuit", "Monaco", "Monte Carlo"),
-                ("Silverstone", "UK", "Silverstone"),
-                ("Spa-Francorchamps", "Belgium", "Spa"),
-            ]
-
-            for name, country, locality in tracks:
-                db.add(models.Track(
-                    name=name,
-                    country=country,
-                    locality=locality
-                ))
-
-        # ================= RACES =================
-        if hasattr(models, "Race"):
-            races = [
-                (2024, 1, "Bahrain GP"),
-                (2024, 2, "Saudi GP"),
-                (2024, 3, "Australian GP"),
-            ]
-
-            for season, round_, name in races:
-                db.add(models.Race(
-                    season=season,
-                    round=round_,
-                    race_name=name
-                ))
 
         db.commit()
         print("✅ Seeding complete")
