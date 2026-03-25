@@ -113,6 +113,11 @@ def run_seed(secret: str):
 
     return {"message": "SEED COMPLETED ✅"}
 
+@app.get("/debug/drivers-count")
+def debug_drivers(db: Session = Depends(get_db)):
+    count = db.query(models.Driver).count()
+    return {"drivers_count": count}
+
 @app.post("/predict")
 def predict(
     prediction: PredictionCreate,
