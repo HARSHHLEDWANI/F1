@@ -7,7 +7,7 @@ import { useUserTier } from "@/hooks/useUserTier";
 import { apiFetch } from "@/lib/api";
 import {
   Menu, X, Zap, Users, Trophy, Map,
-  Cpu, User, LogOut, ChevronRight
+  Cpu, User, LogOut, ChevronRight, BookOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -47,6 +47,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
+    { name: "Learn F1", href: "/learn", icon: BookOpen },
     { name: "Teams", href: "/teams", icon: Users },
     { name: "Drivers", href: "/drivers", icon: Trophy },
     { name: "Tracks", href: "/tracks", icon: Map },

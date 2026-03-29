@@ -16,14 +16,21 @@ from app.seed import seed_all
 
 app = FastAPI()
 
-# ✅ CREATE TABLES ON STARTUP (CRITICAL FIX)
+# ✅ CREATE TABLES + AUTO-SEED ON STARTUP
 @app.on_event("startup")
 def startup():
     try:
         models.Base.metadata.create_all(bind=engine)
         print("✅ Tables created successfully")
     except Exception as e:
-        print("❌ DB ERROR:", e)
+        print("❌ DB CREATE ERROR:", e)
+        return
+
+    # Auto-seed on every cold start — seed_all() is idempotent (skips if data exists)
+    try:
+        seed_all()
+    except Exception as e:
+        print("❌ AUTO-SEED ERROR:", e)
 
 
 # ✅ INCLUDE ROUTES
