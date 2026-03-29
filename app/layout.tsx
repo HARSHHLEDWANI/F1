@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <div className="relative z-10">
             <Navbar />
-            <main className="pt-20">
+            <main className="pt-24">
               {children}
             </main>
           </div>
