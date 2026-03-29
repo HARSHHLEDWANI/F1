@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Gamepad } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Flag, Zap, Clock, Trophy, RotateCcw, CheckCircle2, XCircle } from "lucide-react";
 import GlowButton from "@/components/GlowButton";
@@ -622,7 +623,7 @@ export default function SimulationsPage() {
       <div className="max-w-5xl mx-auto px-6 pt-24 pb-10">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E10600]/10 border border-[#E10600]/20 rounded-full text-sm text-[#E10600] font-black mb-6">
-            <Gamepad2 size={14} /> Interactive Simulations
+            <Gamepad size={14} /> Interactive Simulations
           </div>
           <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter mb-4">
             F1 <span className="text-[#E10600]">SIMS</span>
