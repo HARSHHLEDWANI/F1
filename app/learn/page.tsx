@@ -263,7 +263,7 @@ const modules: Module[] = [
           <h3 className="font-black mb-4 text-white">How a Pit Stop Works</h3>
           <ol className="space-y-3">
             {[
-              "Driver radios in: "Box, box" means come to the pits",
+              'Driver radios in: "Box, box" means come to the pits',
               "Car drives down the pit lane (~80km/h speed limit)",
               "Car stops in its exact garage spot — millimetre precision",
               "20 mechanics surround the car simultaneously",
