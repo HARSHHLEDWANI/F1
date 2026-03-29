@@ -1,105 +1,139 @@
 "use client";
 
-/**
- * SpeedScene — React Three Fiber 3D background
- *
- * ⚠️  REQUIRES INSTALLATION:
- *     npm install three @react-three/fiber @react-three/drei
- *     (already added to package.json — run npm install once)
- *
- * Usage:
- *   import SpeedScene from "@/components/SpeedScene";
- *   <SpeedScene />   // renders fullscreen, position: fixed, z-index: -1
- *
- * What it renders:
- *   - 2000 particles streaming toward the camera (warp-speed effect)
- *   - Subtle red ambient light and a dim point light
- *   - Responsive canvas that fills its container
- *   - Optimized: uses instanced mesh + demand frameloop
- */
-
-import { useRef, useMemo, Suspense } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { PointMaterial, Points } from "@react-three/drei";
+import { useEffect, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
-const PARTICLE_COUNT = 2000;
-
-function WarpParticles() {
-  const pointsRef = useRef<THREE.Points>(null!);
-
-  // Generate random sphere of particles
-  const positions = useMemo(() => {
-    const pos = new Float32Array(PARTICLE_COUNT * 3);
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const r = 3 + Math.random() * 8;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi) - 5; // offset behind camera
-    }
-    return pos;
-  }, []);
-
-  useFrame(({ clock }) => {
-    if (!pointsRef.current) return;
-    const t = clock.getElapsedTime();
-    // Slow rotation for depth
-    pointsRef.current.rotation.y = t * 0.04;
-    pointsRef.current.rotation.x = Math.sin(t * 0.03) * 0.1;
-  });
-
-  return (
-    <Points ref={pointsRef} positions={positions} stride={3} frustumCulled={false}>
-      <PointMaterial
-        transparent
-        color="#ff2200"
-        size={0.015}
-        sizeAttenuation
-        depthWrite={false}
-        opacity={0.6}
-      />
-    </Points>
-  );
-}
-
+// ─────────────────────────────────────────────
+// 🚀 PURE THREE.JS SPEED LINES
+// ─────────────────────────────────────────────
 function StreamLines() {
-  const linesRef = useRef<THREE.Group>(null!);
+  const { scene } = useThree();
+  const linesRef = useRef<THREE.Mesh[]>([]);
 
-  const lines = useMemo(() => {
-    return Array.from({ length: 60 }, () => ({
-      x: (Math.random() - 0.5) * 8,
-      y: (Math.random() - 0.5) * 6,
-      z: Math.random() * -20,
-      speed: 0.05 + Math.random() * 0.15,
-      len: 0.3 + Math.random() * 0.7,
-    }));
-  }, []);
+  useEffect(() => {
+    const meshes: THREE.Mesh[] = [];
+
+    for (let i = 0; i < 60; i++) {
+      const geometry = new THREE.BoxGeometry(
+        0.003,
+        0.003,
+        0.3 + Math.random() * 0.7
+      );
+
+      const material = new THREE.MeshBasicMaterial({
+        color: i % 5 === 0 ? "#E10600" : "#ffffff",
+        transparent: true,
+        opacity: 0.4,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+
+      mesh.position.set(
+        (Math.random() - 0.5) * 8,
+        (Math.random() - 0.5) * 6,
+        Math.random() * -20
+      );
+
+      scene.add(mesh);
+      meshes.push(mesh);
+    }
+
+    linesRef.current = meshes;
+
+    // cleanup (VERY IMPORTANT)
+    return () => {
+      meshes.forEach((mesh) => {
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        (mesh.material as THREE.Material).dispose();
+      });
+    };
+  }, [scene]);
 
   useFrame(() => {
-    if (!linesRef.current) return;
-    linesRef.current.children.forEach((line, i) => {
-      const data = lines[i];
-      line.position.z += data.speed;
-      if (line.position.z > 2) {
-        line.position.z = -20;
+    linesRef.current.forEach((mesh) => {
+      mesh.position.z += 0.1;
+
+      if (mesh.position.z > 2) {
+        mesh.position.z = -20;
       }
     });
   });
 
-  return (
-    <group ref={linesRef}>
-      {lines.map((l, i) => (
-        <mesh key={i} position={[l.x, l.y, l.z]}>
-          <boxGeometry args={[0.003, 0.003, l.len]} />
-          <meshBasicMaterial color={i % 5 === 0 ? "#E10600" : "#ffffff"} transparent opacity={0.4} />
-        </mesh>
-      ))}
-    </group>
-  );
+  return null; // ⚠️ nothing rendered via JSX
 }
 
+// ─────────────────────────────────────────────
+// 🌌 PARTICLES (keep simple)
+// ─────────────────────────────────────────────
+function WarpParticles() {
+  const { scene } = useThree();
+  const particlesRef = useRef<THREE.Points | null>(null);
+
+  useEffect(() => {
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(2000 * 3);
+
+    for (let i = 0; i < 2000; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 2] = Math.random() * -10;
+    }
+
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+      color: "#ff2200",
+      size: 0.02,
+      transparent: true,
+      opacity: 0.6,
+    });
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+    particlesRef.current = points;
+
+    return () => {
+      scene.remove(points);
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [scene]);
+
+  useFrame(({ clock }) => {
+    if (!particlesRef.current) return;
+
+    const t = clock.getElapsedTime();
+    particlesRef.current.rotation.y = t * 0.04;
+  });
+
+  return null;
+}
+function SceneLights() {
+  const { scene } = useThree();
+
+  useEffect(() => {
+    const ambient = new THREE.AmbientLight(0xffffff, 0.1);
+    const point = new THREE.PointLight("#E10600", 0.5);
+
+    point.position.set(0, 0, 2);
+
+    scene.add(ambient);
+    scene.add(point);
+
+    return () => {
+      scene.remove(ambient);
+      scene.remove(point);
+    };
+  }, [scene]);
+
+  return null;
+}
+// ─────────────────────────────────────────────
+// 🏎️ MAIN COMPONENT
+// ─────────────────────────────────────────────
 export default function SpeedScene() {
   return (
     <div
@@ -112,17 +146,12 @@ export default function SpeedScene() {
     >
       <Canvas
         camera={{ position: [0, 0, 3], fov: 75 }}
-        style={{ background: "transparent" }}
-        gl={{ alpha: true, antialias: false, powerPreference: "high-performance" }}
-        frameloop="always"
-        dpr={[1, 1.5]} // cap pixel ratio for performance
+        gl={{ alpha: true }}
       >
-        <ambientLight intensity={0.1} />
-        <pointLight position={[0, 0, 2]} color="#E10600" intensity={0.5} />
-        <Suspense fallback={null}>
-          <WarpParticles />
-          <StreamLines />
-        </Suspense>
+  
+
+        <WarpParticles />
+        <StreamLines />
       </Canvas>
     </div>
   );
