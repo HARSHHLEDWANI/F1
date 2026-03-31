@@ -5,21 +5,39 @@ import Link from "next/link";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Zap, Trophy, Users, Map, Cpu,
-  BookOpen, Gamepad2, ArrowRight, TrendingUp, Clock
+  BookOpen, Gamepad2, ArrowRight, Clock, Radio,
 } from "lucide-react";
 import SpeedCanvas from "@/components/SpeedCanvas";
 import TiltCard from "@/components/TiltCard";
 import GlowButton from "@/components/GlowButton";
+import LiveLeaderboard from "@/components/LiveLeaderboard";
+import { useLiveRace } from "@/hooks/useLiveRace";
+import { useRaceCountdown } from "@/hooks/useRaceCountdown";
+import { useF1Season } from "@/hooks/useF1Season";
 
-// ── Mock standings (replaced by real API data on driver page) ────────────────
-const STANDINGS = [
-  { pos: 1, code: "VER", full: "Max Verstappen",    team: "Red Bull",    pts: 437, color: "#0600EF", delta: "+125" },
-  { pos: 2, code: "NOR", full: "Lando Norris",       team: "McLaren",     pts: 374, color: "#FF8700", delta: "+63"  },
-  { pos: 3, code: "LEC", full: "Charles Leclerc",    team: "Ferrari",     pts: 356, color: "#DC0000", delta: "+18"  },
-  { pos: 4, code: "PIA", full: "Oscar Piastri",      team: "McLaren",     pts: 292, color: "#FF8700", delta: "+64"  },
-  { pos: 5, code: "SAI", full: "Carlos Sainz",       team: "Ferrari",     pts: 290, color: "#DC0000", delta: "+2"   },
-];
+// ── Team colours (for standings display) ─────────────────────────────────────
+const TEAM_COLORS: Record<string, string> = {
+  "Red Bull":    "#0600EF",
+  "McLaren":     "#FF8700",
+  "Ferrari":     "#DC0000",
+  "Mercedes":    "#00D2BE",
+  "Aston Martin":"#006F62",
+  "Alpine":      "#0093CC",
+  "Williams":    "#005AFF",
+  "VCARB":       "#1E41FF",
+  "Haas":        "#B6BABD",
+  "Sauber":      "#00E48D",
+  "RB":          "#1E41FF",
+};
 
+function teamColor(name: string): string {
+  for (const [key, color] of Object.entries(TEAM_COLORS)) {
+    if (name.toLowerCase().includes(key.toLowerCase())) return color;
+  }
+  return "#6b7280";
+}
+
+// ── Feature grid config ───────────────────────────────────────────────────────
 const FEATURES = [
   {
     icon: BookOpen, label: "Learn F1", href: "/learn",
@@ -42,7 +60,7 @@ const FEATURES = [
   {
     icon: Users, label: "Teams", href: "/teams",
     desc: "All 10 constructors — car specs, rosters, championship history.",
-    badge: "2024", badgeColor: "#0600EF",
+    badge: "2025", badgeColor: "#0600EF",
     stat: "10 teams",
   },
   {
@@ -60,39 +78,36 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { label: "Race Rounds",   val: "24",   suffix: "" },
-  { label: "Active Teams",  val: "10",   suffix: "" },
-  { label: "Grid Drivers",  val: "20",   suffix: "" },
-  { label: "AI Features",   val: "17",   suffix: "" },
+  { label: "Race Rounds",  val: "24", suffix: "" },
+  { label: "Active Teams", val: "10", suffix: "" },
+  { label: "Grid Drivers", val: "20", suffix: "" },
+  { label: "AI Features",  val: "17", suffix: "" },
 ];
 
-// ── Animated char-by-char title ──────────────────────────────────────────────
+// ── Animated char-by-char title ───────────────────────────────────────────────
 function AnimatedTitle() {
-  const word1 = "F1";
-  const word2 = "PREDICTOR";
-
   return (
     <h1 className="text-[clamp(4rem,12vw,10rem)] font-black italic tracking-tighter leading-none mb-6">
       <span className="block">
-        {word1.split("").map((c, i) => (
+        {"F1".split("").map((c, i) => (
           <motion.span
             key={i}
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 + 0.2, type: "spring", stiffness: 200, damping: 20 }}
+            initial={{ opacity: 0, y: 80, rotateX: -40 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            transition={{ delay: i * 0.10 + 0.15, type: "spring", stiffness: 180, damping: 18 }}
             className="inline-block"
           >
             {c}
           </motion.span>
         ))}
       </span>
-      <span className="block" style={{ color: "#E10600", textShadow: "0 0 30px rgba(225,6,0,0.5)" }}>
-        {word2.split("").map((c, i) => (
+      <span className="block" style={{ color: "#E10600", textShadow: "0 0 40px rgba(225,6,0,0.55)" }}>
+        {"PREDICTOR".split("").map((c, i) => (
           <motion.span
             key={i}
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 + 0.4, type: "spring", stiffness: 200, damping: 20 }}
+            initial={{ opacity: 0, y: 80, rotateX: -40 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            transition={{ delay: i * 0.045 + 0.38, type: "spring", stiffness: 200, damping: 20 }}
             className="inline-block"
           >
             {c}
@@ -103,7 +118,7 @@ function AnimatedTitle() {
   );
 }
 
-// ── Animated counter ─────────────────────────────────────────────────────────
+// ── Animated counter ──────────────────────────────────────────────────────────
 function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
@@ -132,38 +147,34 @@ function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
   return <span ref={ref}>{count}{suffix}</span>;
 }
 
-// ── Race Countdown (decorative) ───────────────────────────────────────────────
-function RaceCountdown() {
-  const [time, setTime] = useState({ d: 5, h: 14, m: 32, s: 11 });
-  useEffect(() => {
-    const t = setInterval(() => {
-      setTime((prev) => {
-        let { d, h, m, s } = prev;
-        s--;
-        if (s < 0) { s = 59; m--; }
-        if (m < 0) { m = 59; h--; }
-        if (h < 0) { h = 23; d--; }
-        if (d < 0) return prev;
-        return { d, h, m, s };
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
+// ── Real race countdown using the hook ────────────────────────────────────────
+function RaceCountdownDisplay() {
+  const { daysUntil, hoursUntil, minutesUntil, secondsUntil } = useRaceCountdown();
+  const pad = (n: number) => String(Math.max(0, n)).padStart(2, "0");
 
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const segments = [
+    { label: "DAYS", val: daysUntil },
+    { label: "HRS",  val: hoursUntil },
+    { label: "MIN",  val: minutesUntil },
+    { label: "SEC",  val: secondsUntil },
+  ];
 
   return (
     <div className="flex items-center gap-3 font-mono">
-      {[{ label: "DAYS", val: time.d }, { label: "HRS", val: time.h }, { label: "MIN", val: time.m }, { label: "SEC", val: time.s }].map(({ label, val }, i) => (
+      {segments.map(({ label, val }) => (
         <div key={label} className="flex flex-col items-center">
-          <motion.span
-            key={val}
-            initial={{ y: -10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="text-2xl font-black text-white tabular-nums"
-          >
-            {pad(val)}
-          </motion.span>
+          <AnimatePresence mode="popLayout">
+            <motion.span
+              key={val}
+              initial={{ y: -12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 12, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="text-2xl font-black text-white tabular-nums"
+            >
+              {pad(val)}
+            </motion.span>
+          </AnimatePresence>
           <span className="text-[8px] text-neutral-600 uppercase tracking-widest">{label}</span>
         </div>
       ))}
@@ -171,24 +182,55 @@ function RaceCountdown() {
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Standings skeleton ────────────────────────────────────────────────────────
+function StandingsSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/4">
+          <div className="h-3 w-4 rounded bg-white/10" />
+          <div className="w-1 h-8 rounded-full bg-white/10 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="h-3 w-10 rounded bg-white/10 mb-1" />
+            <div className="h-2 w-16 rounded bg-white/6" />
+          </div>
+          <div className="flex-1 hidden sm:block">
+            <div className="h-1 bg-white/8 rounded-full" />
+          </div>
+          <div className="h-3 w-16 rounded bg-white/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+  const heroY       = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+
+  // Hooks
+  const { isLive, isSimulation, lap, totalLaps } = useLiveRace();
+  const { nextRace, daysUntil, hoursUntil, minutesUntil, secondsUntil } = useRaceCountdown();
+  const { driverStandings, loading: standingsLoading } = useF1Season(2024);
+
+  // Top 5 standings for display
+  const top5 = driverStandings.slice(0, 5);
+  const maxPts = top5.length > 0 ? parseInt(top5[0].points, 10) : 1;
 
   return (
     <div className="overflow-x-hidden">
 
-      {/* ════════════════════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════════════
           HERO
-      ════════════════════════════════════════════════════════════════════ */}
+      ═══════════════════════════════════════════════════════════════════ */}
       <section
         ref={heroRef}
         className="relative min-h-screen flex flex-col justify-center overflow-hidden"
       >
-        {/* Speed streaks background */}
+        {/* Speed streaks */}
         <SpeedCanvas intensity={0.6} />
 
         {/* Radial vignette */}
@@ -201,15 +243,46 @@ export default function Home() {
           style={{ opacity: heroOpacity, y: heroY }}
           className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20"
         >
-          {/* Live badge */}
+          {/* Dynamic status badge: live / simulation / default */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#E10600]/10 border border-[#E10600]/20 text-[#E10600] text-[10px] font-black tracking-widest uppercase mb-8"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8"
+            style={
+              isLive
+                ? { background: "rgba(225,6,0,0.12)", border: "1px solid rgba(225,6,0,0.35)" }
+                : isSimulation
+                ? { background: "rgba(250,204,21,0.10)", border: "1px solid rgba(250,204,21,0.3)" }
+                : { background: "rgba(225,6,0,0.08)", border: "1px solid rgba(225,6,0,0.18)" }
+            }
           >
-            <span className="w-1.5 h-1.5 bg-[#E10600] rounded-full pulse-red" />
-            2024 Season · AI Telemetry Active
+            {isLive ? (
+              <>
+                <span className="w-1.5 h-1.5 bg-[#E10600] rounded-full pulse-red" />
+                <span className="text-[10px] font-black tracking-widest uppercase text-[#E10600]">
+                  Race Live — Lap {lap} / {totalLaps}
+                </span>
+              </>
+            ) : isSimulation ? (
+              <>
+                <motion.span
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="text-[10px] text-yellow-400"
+                >◉</motion.span>
+                <span className="text-[10px] font-black tracking-widest uppercase text-yellow-400">
+                  Simulation Active — Lap {lap} / {totalLaps}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 bg-[#E10600] rounded-full pulse-red" />
+                <span className="text-[10px] font-black tracking-widest uppercase text-[#E10600]">
+                  2025 Season · AI Telemetry Active
+                </span>
+              </>
+            )}
           </motion.div>
 
           {/* Title */}
@@ -219,7 +292,7 @@ export default function Home() {
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 0.85 }}
             className="text-neutral-400 text-lg md:text-xl max-w-2xl leading-relaxed mb-10"
           >
             The next-generation Formula 1 platform. Learn the sport, explore the data,
@@ -230,7 +303,7 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
+            transition={{ delay: 1.05 }}
             className="flex flex-wrap gap-4"
           >
             <GlowButton href="/prediction" variant="red">
@@ -261,14 +334,84 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          LIVE DASHBOARD STRIP
-      ════════════════════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          RACE CONTROL — LIVE TIMING
+      ═══════════════════════════════════════════════════════════════════ */}
+      <section className="relative py-16 px-6">
+        <div className="max-w-7xl mx-auto">
+
+          {/* Section header */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex items-center gap-4 mb-8"
+          >
+            <div>
+              <p className="text-[10px] text-[#E10600] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
+                <Radio size={10} />
+                {isSimulation ? "Simulation Mode — Race Simulator Active" : "Race Control"}
+              </p>
+              <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter">
+                LIVE <span className="text-[#E10600]">TIMING</span>
+              </h2>
+            </div>
+
+            {/* Live / Sim badge */}
+            <AnimatePresence mode="wait">
+              {isLive && (
+                <motion.div
+                  key="live"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full ml-auto"
+                  style={{ background: "rgba(225,6,0,0.15)", border: "1px solid rgba(225,6,0,0.4)" }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#E10600] pulse-red" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#E10600]">Race Live</span>
+                </motion.div>
+              )}
+              {isSimulation && (
+                <motion.div
+                  key="sim"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full ml-auto"
+                  style={{ background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.35)" }}
+                >
+                  <motion.span
+                    animate={{ opacity: [1, 0.3, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.4 }}
+                    className="text-yellow-400 text-xs"
+                  >◉</motion.span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400">Simulation</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Leaderboard */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <LiveLeaderboard />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          DASHBOARD STRIP — Standings + Next Race
+      ═══════════════════════════════════════════════════════════════════ */}
       <section className="relative py-16 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-            {/* Standings Card */}
+            {/* ── Driver Standings (real data from useF1Season) ─────────── */}
             <motion.div
               initial={{ opacity: 0, x: -40 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -289,50 +432,70 @@ export default function Home() {
                 </Link>
               </div>
 
-              <div className="space-y-3">
-                {STANDINGS.map((d, i) => (
-                  <motion.div
-                    key={d.code}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.08, duration: 0.4 }}
-                    className="flex items-center gap-4 p-3 rounded-2xl bg-white/4 border border-white/5 group hover:bg-white/8 transition-all cursor-default"
-                  >
-                    {/* Pos */}
-                    <span className="font-mono text-neutral-600 text-sm w-5 text-center">{d.pos}</span>
+              {standingsLoading ? (
+                <StandingsSkeleton />
+              ) : (
+                <div className="space-y-3">
+                  {top5.map((d, i) => {
+                    const pts = parseInt(d.points, 10);
+                    const constructorName = d.Constructors?.[0]?.name ?? "";
+                    const color = teamColor(constructorName);
+                    const driverCode = d.Driver.code ?? d.Driver.familyName.substring(0, 3).toUpperCase();
 
-                    {/* Team color bar */}
-                    <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                    return (
+                      <motion.div
+                        key={d.Driver.driverId}
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.08, duration: 0.4 }}
+                        className="flex items-center gap-4 p-3 rounded-2xl bg-white/4 border border-white/5 hover:bg-white/8 transition-all cursor-default"
+                      >
+                        {/* Pos */}
+                        <span className="font-mono text-neutral-600 text-sm w-5 text-center">
+                          {d.position}
+                        </span>
 
-                    {/* Name */}
-                    <div className="flex-1">
-                      <p className="font-black text-sm tracking-wide text-white">{d.code}</p>
-                      <p className="text-[10px] text-neutral-500">{d.team}</p>
-                    </div>
-
-                    {/* Points bar */}
-                    <div className="flex-1 hidden sm:block">
-                      <div className="h-1 bg-white/8 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full rounded-full"
-                          style={{ backgroundColor: d.color }}
-                          initial={{ width: 0 }}
-                          whileInView={{ width: `${(d.pts / 437) * 100}%` }}
-                          viewport={{ once: true }}
-                          transition={{ delay: i * 0.08 + 0.3, duration: 0.8, ease: "easeOut" }}
+                        {/* Team color bar */}
+                        <div
+                          className="w-1 h-8 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: color }}
                         />
-                      </div>
-                    </div>
 
-                    {/* Pts */}
-                    <span className="font-mono font-black text-sm text-white w-16 text-right">{d.pts} PTS</span>
-                  </motion.div>
-                ))}
-              </div>
+                        {/* Name */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-sm tracking-wide text-white">{driverCode}</p>
+                          <p className="text-[10px] text-neutral-500 truncate">
+                            {d.Driver.givenName} {d.Driver.familyName}
+                          </p>
+                        </div>
+
+                        {/* Points bar */}
+                        <div className="flex-1 hidden sm:block">
+                          <div className="h-1 bg-white/8 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full rounded-full"
+                              style={{ backgroundColor: color }}
+                              initial={{ width: 0 }}
+                              whileInView={{ width: `${(pts / maxPts) * 100}%` }}
+                              viewport={{ once: true }}
+                              transition={{ delay: i * 0.08 + 0.3, duration: 0.8, ease: "easeOut" }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Pts */}
+                        <span className="font-mono font-black text-sm text-white w-16 text-right flex-shrink-0">
+                          {pts} PTS
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
 
-            {/* Race Info Card */}
+            {/* ── Next Race + Quick Stats ───────────────────────────────── */}
             <motion.div
               initial={{ opacity: 0, x: 40 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -342,17 +505,46 @@ export default function Home() {
             >
               {/* Next race countdown */}
               <div className="glass-card-red rounded-3xl p-8 relative overflow-hidden flex-1">
-                <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-[#E10600]/8 blur-2xl pointer-events-none" />
+                <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-[#E10600]/6 blur-3xl pointer-events-none" />
+
                 <div className="text-[10px] text-[#E10600] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 bg-[#E10600] rounded-full pulse-red" />
                   Next Race
                 </div>
-                <h3 className="text-3xl font-black italic mb-1">Miami GP</h3>
-                <p className="text-neutral-500 text-sm mb-6">Miami International Autodrome · Round 6</p>
+
+                {nextRace ? (
+                  <>
+                    <h3 className="text-3xl font-black italic mb-1 flex items-center gap-2">
+                      {nextRace.flag} {nextRace.raceName.replace(" Grand Prix", "")} GP
+                    </h3>
+                    <p className="text-neutral-500 text-sm mb-6">
+                      {nextRace.circuit} · Round {nextRace.round}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-3xl font-black italic mb-1">Season Complete</h3>
+                    <p className="text-neutral-500 text-sm mb-6">2025 season has concluded</p>
+                  </>
+                )}
+
                 <div className="flex items-center gap-4 mb-6">
-                  <Clock size={14} className="text-neutral-500" />
-                  <RaceCountdown />
+                  <Clock size={14} className="text-neutral-500 flex-shrink-0" />
+                  <RaceCountdownDisplay />
                 </div>
+
+                {/* Sprint weekend indicator */}
+                {nextRace?.isSprintWeekend && (
+                  <div
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-4"
+                    style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.35)" }}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">
+                      Sprint Weekend
+                    </span>
+                  </div>
+                )}
+
                 <GlowButton href="/prediction" variant="red" className="w-full">
                   Predict the Podium <ChevronRight size={14} />
                 </GlowButton>
@@ -361,8 +553,18 @@ export default function Home() {
               {/* Quick stats */}
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: "Fastest Lap", val: "1:28.114", sub: "Leclerc · Miami", icon: "⚡" },
-                  { label: "Championship Lead", val: "+63 PTS", sub: "Verstappen vs Norris", icon: "🏆" },
+                  {
+                    label: "Season Rounds",
+                    val: "24",
+                    sub: "2025 Calendar",
+                    icon: "🏁",
+                  },
+                  {
+                    label: "Grid Drivers",
+                    val: "20",
+                    sub: "10 Constructors",
+                    icon: "🏎️",
+                  },
                 ].map((s) => (
                   <div key={s.label} className="glass-card rounded-2xl p-5">
                     <div className="text-xl mb-1">{s.icon}</div>
@@ -377,9 +579,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════════════
           FEATURE GRID (TiltCards)
-      ════════════════════════════════════════════════════════════════════ */}
+      ═══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -410,7 +612,7 @@ export default function Home() {
                       href={f.href}
                       className="block glass-card rounded-3xl p-8 h-full group relative overflow-hidden hover:border-white/10 transition-all duration-300"
                     >
-                      {/* Background glow on hover */}
+                      {/* Hover glow */}
                       <div
                         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                         style={{ background: `radial-gradient(ellipse at 0% 0%, ${f.badgeColor}08 0%, transparent 60%)` }}
@@ -437,7 +639,7 @@ export default function Home() {
                         {f.label}
                       </h3>
 
-                      {/* Desc */}
+                      {/* Description */}
                       <p className="text-sm text-neutral-500 leading-relaxed mb-6">{f.desc}</p>
 
                       {/* Footer */}
@@ -465,9 +667,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════════════
           ANIMATED STATS
-      ════════════════════════════════════════════════════════════════════ */}
+      ═══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#E10600]/3 to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto">
@@ -491,9 +693,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════════════
           LEARN F1 CTA BANNER
-      ════════════════════════════════════════════════════════════════════ */}
+      ═══════════════════════════════════════════════════════════════════ */}
       <section className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -502,7 +704,7 @@ export default function Home() {
             viewport={{ once: true }}
             className="relative overflow-hidden rounded-[3rem] carbon-fiber border border-white/6 p-16 text-center"
           >
-            {/* Background elements */}
+            {/* Background glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-[#E10600]/8 blur-[80px] rounded-full pointer-events-none" />
             <div className="absolute top-4 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-[#E10600]/30 to-transparent pointer-events-none" />
 
@@ -515,6 +717,7 @@ export default function Home() {
             >
               🏎️
             </motion.div>
+
             <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter mb-4">
               NEW TO FORMULA 1?
             </h2>
