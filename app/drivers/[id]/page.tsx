@@ -49,7 +49,7 @@ const NATIONALITY_FLAGS: Record<string, string> = {
   Spanish: "🇪🇸", German: "🇩🇪", Finnish: "🇫🇮", French: "🇫🇷",
   Mexican: "🇲🇽", Canadian: "🇨🇦", Japanese: "🇯🇵", Thai: "🇹🇭",
   American: "🇺🇸", Danish: "🇩🇰", Chinese: "🇨🇳", Italian: "🇮🇹",
-  New Zealander: "🇳🇿",
+  "New Zealander": "🇳🇿",
 };
 
 function getNationalityFlag(nationality: string): string {
