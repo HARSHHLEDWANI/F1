@@ -50,3 +50,42 @@ def get_tracks(db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/live-race")
+def get_live_race(db: Session = Depends(get_db)):
+    """Return simulated live race data using the most recent race in the database."""
+    # Get the most recent race entry
+    latest = db.query(models.Race_Results).order_by(
+        models.Race_Results.season.desc(),
+        models.Race_Results.round.desc()
+    ).first()
+
+    if not latest:
+        return {"status": "no_session", "session": None, "message": "No data available"}
+
+    # Get all results for that race, ordered by finishing position
+    results = db.query(models.Race_Results).filter(
+        models.Race_Results.season == latest.season,
+        models.Race_Results.round == latest.round
+    ).order_by(models.Race_Results.position).all()
+
+    return {
+        "status": "finished",
+        "race_name": latest.race_name,
+        "season": latest.season,
+        "round": latest.round,
+        "session": "Race",
+        "results": [
+            {
+                "position": r.position,
+                "driver_ref": r.driver_ref,
+                "constructor_ref": r.constructor_ref,
+                "points": r.points,
+                "status": r.status,
+                "laps": r.laps,
+                "time": r.time
+            }
+            for r in results[:10]
+        ]
+    }
