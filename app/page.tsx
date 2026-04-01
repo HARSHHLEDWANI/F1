@@ -14,6 +14,7 @@ import LiveLeaderboard from "@/components/LiveLeaderboard";
 import { useLiveRace } from "@/hooks/useLiveRace";
 import { useRaceCountdown } from "@/hooks/useRaceCountdown";
 import { useF1Season } from "@/hooks/useF1Season";
+import SkeletonCard from "./SkeletonCard";
 
 // ── Team colours (for standings display) ─────────────────────────────────────
 const TEAM_COLORS: Record<string, string> = {
@@ -35,6 +36,13 @@ function teamColor(name: string): string {
     if (name.toLowerCase().includes(key.toLowerCase())) return color;
   }
   return "#6b7280";
+}
+export default function TracksPage() {
+  return (
+    <div>
+      <SkeletonCard />
+    </div>
+  );
 }
 
 // ── Feature grid config ───────────────────────────────────────────────────────
