@@ -469,3 +469,138 @@ async def predict_overtakes(request: RaceRequest, db: Session = Depends(get_db))
     except Exception as e:
         logger.error(f"Overtake prediction error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/win-probabilities")
+async def get_win_probabilities(season: int, round: int, db: Session = Depends(get_db)):
+    """Return win/podium probabilities for all drivers in a given race."""
+
+    # Fetch all results for the requested race
+    race_results = db.query(models.Race_Results).filter(
+        models.Race_Results.season == season,
+        models.Race_Results.round == round
+    ).order_by(models.Race_Results.position).all()
+
+    if not race_results:
+        raise HTTPException(status_code=404, detail="No race data found for this season/round")
+
+    race_name = race_results[0].race_name
+
+    # Try to use ML model; fall back to statistical estimation if unavailable
+    model, scaler, features_cols = load_model()
+    use_model = model is not None and scaler is not None and features_cols is not None
+
+    driver_scores: list[dict] = []
+
+    for result in race_results:
+        # Resolve Driver ORM object by matching driver_ref to family_name
+        driver_family_name = result.driver_ref.split("_")[-1].title()
+        name_corrections = {
+            "Perez": "Pérez",
+            "Hulkenberg": "Hülkenberg",
+        }
+        driver_family_name = name_corrections.get(driver_family_name, driver_family_name)
+
+        driver_obj = db.query(models.Driver).filter(
+            models.Driver.family_name == driver_family_name
+        ).first()
+
+        full_name = (
+            f"{driver_obj.given_name} {driver_obj.family_name}"
+            if driver_obj
+            else driver_family_name
+        )
+        driver_code = result.driver_ref.upper()[:3]
+        team = result.constructor_ref.replace("_", " ").title()
+        rating = float(driver_obj.rating) if driver_obj else 50.0
+
+        if use_model and driver_obj:
+            # Build feature vector using the shared helper
+            features_dict = build_driver_features(
+                driver_id=driver_obj.id,
+                grid_position=float(result.grid if result.grid else 10),
+                circuit_id=0,  # No circuit lookup needed for probability estimation
+                season=season,
+                constructor_ref=result.constructor_ref,
+                db=db,
+            )
+
+            if features_dict:
+                X = np.array([[features_dict.get(col, 0) for col in features_cols]])
+                X_scaled = scaler.transform(X)
+                predicted_position = float(model.predict(X_scaled)[0])
+                predicted_position = max(1.0, min(20.0, predicted_position))
+
+                # Score is inverse of predicted finishing position; lower = better
+                raw_score = 1.0 / predicted_position
+                form_index = features_dict.get("driver_form_index", 50.0)
+                confidence = calculate_confidence_score(
+                    predicted_position,
+                    form_index,
+                    features_dict.get("constructor_reliability", 0.8),
+                )
+            else:
+                raw_score = 1.0 / 15.0
+                confidence = 50.0
+        else:
+            # --- Statistical fallback ---
+            # Count wins and podiums for this driver in the requested season up to this round
+            season_results = db.query(models.Race_Results).filter(
+                models.Race_Results.driver_ref == result.driver_ref,
+                models.Race_Results.season == season,
+                models.Race_Results.round <= round,
+            ).all()
+
+            total_races = len(season_results) if season_results else 1
+            wins = sum(1 for r in season_results if r.position == 1)
+            podiums = sum(1 for r in season_results if r.position and r.position <= 3)
+
+            win_rate = wins / total_races
+            podium_rate = podiums / total_races
+
+            # Blend win rate with normalised driver rating so drivers with no
+            # wins still have a meaningful differentiated score
+            rating_score = rating / 100.0
+            raw_score = win_rate * 0.6 + rating_score * 0.4
+            confidence = round(
+                (podium_rate * 0.5 + rating_score * 0.5) * 100, 1
+            )
+
+        driver_scores.append({
+            "driver_code": driver_code,
+            "driver_name": full_name,
+            "team": team,
+            "raw_score": raw_score,
+            "confidence": round(confidence, 1),
+        })
+
+    # Normalise raw scores so win probabilities sum to 1.0
+    total_score = sum(d["raw_score"] for d in driver_scores) or 1.0
+
+    # For podium probability we use a softer exponent so mid-field drivers still
+    # get a realistic share (cube-root of win_probability scaled up).
+    probabilities = []
+    for d in driver_scores:
+        win_prob = round(d["raw_score"] / total_score, 4)
+        # Podium probability: sum of top-3 individual win probabilities approximated
+        # per driver as a boosted version of their win probability
+        podium_prob = round(min(1.0, win_prob ** (1 / 2.5) * 1.8), 4)
+        probabilities.append({
+            "driver_code": d["driver_code"],
+            "driver_name": d["driver_name"],
+            "team": d["team"],
+            "win_probability": win_prob,
+            "podium_probability": podium_prob,
+            "confidence": d["confidence"],
+        })
+
+    # Sort by descending win probability
+    probabilities.sort(key=lambda x: x["win_probability"], reverse=True)
+
+    return {
+        "season": season,
+        "round": round,
+        "race_name": race_name,
+        "probabilities": probabilities,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+    }
