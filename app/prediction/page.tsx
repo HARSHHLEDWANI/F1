@@ -83,6 +83,27 @@ function formatRaceDate(isoDate?: string | null): string {
   }
 }
 
+// ─── Team colours (for normalising backend responses) ───────────────────────
+const TEAM_COLORS_LOCAL: Record<string, string> = {
+  "red bull":    "#0600EF",
+  "mclaren":     "#FF8700",
+  "ferrari":     "#DC0000",
+  "mercedes":    "#00D2BE",
+  "aston martin":"#006F62",
+  "alpine":      "#0093CC",
+  "williams":    "#005AFF",
+  "vcarb":       "#1E41FF",
+  "rb":          "#1E41FF",
+  "haas":        "#B6BABD",
+  "sauber":      "#00E48D",
+  "alfa romeo":  "#900000",
+};
+
+function getTeamColor(teamName?: string | null): string {
+  if (!teamName) return "#888888";
+  return TEAM_COLORS_LOCAL[teamName.toLowerCase()] ?? "#888888";
+}
+
 // ─── Race type returned by /races API ────────────────────────────────────────
 interface RaceInfo {
   id: number;
@@ -116,6 +137,17 @@ const DRIVERS_FOR_PREDICT = [
   { code: "BEA", name: "Oliver Bearman" },
   { code: "LAW", name: "Liam Lawson" },
 ];
+
+// ─── Derive code from full driver name (family-name key) ────────────────────
+const FAMILY_TO_CODE: Record<string, string> = Object.fromEntries(
+  DRIVERS_FOR_PREDICT.map((d) => [d.name.split(" ").pop()!.toLowerCase(), d.code])
+);
+
+function getDriverCode(fullName?: string | null): string {
+  if (!fullName) return "???";
+  const family = fullName.split(" ").pop()?.toLowerCase() ?? "";
+  return FAMILY_TO_CODE[family] ?? fullName.slice(0, 3).toUpperCase();
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -350,7 +382,7 @@ const CONFETTI_COLORS = ["#E10600", "#FFD700", "#00D2BE", "#FF8700", "#ffffff", 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
 export default function PredictionPage() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -407,6 +439,7 @@ export default function PredictionPage() {
   // Fetch predictions when race selected
   useEffect(() => {
     if (selectedRound === null) return;
+    let cancelled = false;
 
     const load = async () => {
       setLoadingPredictions(true);
@@ -414,42 +447,72 @@ export default function PredictionPage() {
       setWinProbData(null);
       setOvertakeData(null);
 
-      // Podium
-      try {
-        const data = await apiFetch("/predictions/podium", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (data?.podium) {
-          setPodiumData(data.podium);
-        } else {
-          setPodiumData(FALLBACK_PODIUM);
-        }
-      } catch {
-        setPodiumData(FALLBACK_PODIUM);
-      }
-
-      // Win probabilities
+      // ── Podium: POST with season + round ──────────────────────────────────
       try {
         const data = await apiFetch(
-          `/predictions/win-probabilities?season=${season}&round=${selectedRound}`
+          "/predictions/podium",
+          { method: "POST", body: JSON.stringify({ season, round: selectedRound }) },
+          { skipAuth: true }
         );
-        if (Array.isArray(data) && data.length > 0) {
-          setWinProbData(data.slice(0, 8));
-        } else {
-          setWinProbData(FALLBACK_WIN_PROBS);
+        if (!cancelled) {
+          if (data?.podium && Array.isArray(data.podium) && data.podium.length > 0) {
+            setPodiumData(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data.podium.map((p: any) => ({
+                driver_code:  getDriverCode(p.driver_name),
+                driver_name:  p.driver_name,
+                team:         p.constructor ?? p.team ?? "Unknown",
+                teamColor:    getTeamColor(p.constructor ?? p.team),
+                confidence:   p.confidence_score ?? p.confidence ?? 50,
+                form_index:   (p.form_index ?? 50) / 100,   // backend: 0-100 → UI: 0-1
+                grid_pos:     p.grid_position ?? Math.round(p.predicted_finish_position ?? 10),
+                predicted_pos:Math.round(p.predicted_finish_position ?? 10),
+              }))
+            );
+          } else {
+            setPodiumData(FALLBACK_PODIUM);
+          }
         }
       } catch {
-        setWinProbData(FALLBACK_WIN_PROBS);
+        if (!cancelled) setPodiumData(FALLBACK_PODIUM);
+      }
+
+      // ── Win probabilities ─────────────────────────────────────────────────
+      try {
+        const data = await apiFetch(
+          `/predictions/win-probabilities?season=${season}&round=${selectedRound}`,
+          {},
+          { skipAuth: true }
+        );
+        const probs = data?.probabilities;
+        if (!cancelled) {
+          if (Array.isArray(probs) && probs.length > 0) {
+            setWinProbData(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              probs.slice(0, 8).map((d: any) => ({
+                driver_code:       getDriverCode(d.driver_name) || d.driver_code,
+                driver_name:       d.driver_name,
+                team:              d.team,
+                teamColor:         getTeamColor(d.team),
+                win_probability:   d.win_probability,
+                podium_probability:d.podium_probability,
+              }))
+            );
+          } else {
+            setWinProbData(FALLBACK_WIN_PROBS);
+          }
+        }
+      } catch {
+        if (!cancelled) setWinProbData(FALLBACK_WIN_PROBS);
       }
 
       // Overtakes (fallback only for now)
-      setOvertakeData(FALLBACK_OVERTAKES);
-
-      setLoadingPredictions(false);
+      if (!cancelled) setOvertakeData(FALLBACK_OVERTAKES);
+      if (!cancelled) setLoadingPredictions(false);
     };
 
     load();
+    return () => { cancelled = true; };
   }, [selectedRound, season]);
 
   const handleSelectRound = (round: number) => {
