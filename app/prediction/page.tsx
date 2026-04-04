@@ -36,39 +36,63 @@ const FALLBACK_OVERTAKES = [
   { driver_code: "OCO", driver_name: "Esteban Ocon", team: "Alpine", teamColor: "#0090FF", grid_pos: 11, predicted_pos: 13, overtake_prob: 0.21 },
 ];
 
-const RACES_2024 = [
-  { round: 1,  name: "Bahrain Grand Prix",          flag: "🇧🇭", date: "Mar 2" },
-  { round: 2,  name: "Saudi Arabian Grand Prix",     flag: "🇸🇦", date: "Mar 9" },
-  { round: 3,  name: "Australian Grand Prix",        flag: "🇦🇺", date: "Mar 24" },
-  { round: 4,  name: "Japanese Grand Prix",          flag: "🇯🇵", date: "Apr 7" },
-  { round: 5,  name: "Chinese Grand Prix",           flag: "🇨🇳", date: "Apr 21" },
-  { round: 6,  name: "Miami Grand Prix",             flag: "🇺🇸", date: "May 5" },
-  { round: 7,  name: "Emilia Romagna Grand Prix",    flag: "🇮🇹", date: "May 19" },
-  { round: 8,  name: "Monaco Grand Prix",            flag: "🇲🇨", date: "May 26" },
-  { round: 9,  name: "Canadian Grand Prix",          flag: "🇨🇦", date: "Jun 9" },
-  { round: 10, name: "Spanish Grand Prix",           flag: "🇪🇸", date: "Jun 23" },
-  { round: 11, name: "Austrian Grand Prix",          flag: "🇦🇹", date: "Jun 30" },
-  { round: 12, name: "British Grand Prix",           flag: "🇬🇧", date: "Jul 7" },
-  { round: 13, name: "Hungarian Grand Prix",         flag: "🇭🇺", date: "Jul 21" },
-  { round: 14, name: "Belgian Grand Prix",           flag: "🇧🇪", date: "Jul 28" },
-  { round: 15, name: "Dutch Grand Prix",             flag: "🇳🇱", date: "Aug 25" },
-  { round: 16, name: "Italian Grand Prix",           flag: "🇮🇹", date: "Sep 1" },
-  { round: 17, name: "Azerbaijan Grand Prix",        flag: "🇦🇿", date: "Sep 15" },
-  { round: 18, name: "Singapore Grand Prix",         flag: "🇸🇬", date: "Sep 22" },
-  { round: 19, name: "United States Grand Prix",     flag: "🇺🇸", date: "Oct 20" },
-  { round: 20, name: "Mexico City Grand Prix",       flag: "🇲🇽", date: "Oct 27" },
-  { round: 21, name: "São Paulo Grand Prix",         flag: "🇧🇷", date: "Nov 3" },
-  { round: 22, name: "Las Vegas Grand Prix",         flag: "🇺🇸", date: "Nov 23" },
-  { round: 23, name: "Qatar Grand Prix",             flag: "🇶🇦", date: "Dec 1" },
-  { round: 24, name: "Abu Dhabi Grand Prix",         flag: "🇦🇪", date: "Dec 8" },
-];
-
-const RACES_BY_SEASON: Record<number, typeof RACES_2024> = {
-  2024: RACES_2024,
-  2023: RACES_2024.map((r) => ({ ...r })),
-  2022: RACES_2024.slice(0, 22).map((r) => ({ ...r })),
-  2021: RACES_2024.slice(0, 22).map((r) => ({ ...r })),
+// ─── Country → flag emoji mapping ───────────────────────────────────────────
+const COUNTRY_FLAGS: Record<string, string> = {
+  Bahrain: "🇧🇭", "Saudi Arabia": "🇸🇦", Australia: "🇦🇺", Japan: "🇯🇵",
+  China: "🇨🇳", USA: "🇺🇸", Italy: "🇮🇹", Monaco: "🇲🇨", Canada: "🇨🇦",
+  Spain: "🇪🇸", Austria: "🇦🇹", UK: "🇬🇧", Hungary: "🇭🇺", Belgium: "🇧🇪",
+  Netherlands: "🇳🇱", Azerbaijan: "🇦🇿", Singapore: "🇸🇬", Mexico: "🇲🇽",
+  Brazil: "🇧🇷", Qatar: "🇶🇦", UAE: "🇦🇪", "United Arab Emirates": "🇦🇪",
 };
+
+function getRaceFlag(country?: string | null, raceName?: string): string {
+  if (country && COUNTRY_FLAGS[country]) return COUNTRY_FLAGS[country];
+  // Name-based fallback
+  const n = raceName?.toLowerCase() ?? "";
+  if (n.includes("bahrain"))     return "🇧🇭";
+  if (n.includes("saudi"))       return "🇸🇦";
+  if (n.includes("australian"))  return "🇦🇺";
+  if (n.includes("japanese"))    return "🇯🇵";
+  if (n.includes("chinese"))     return "🇨🇳";
+  if (n.includes("miami") || n.includes("united states") || n.includes("las vegas")) return "🇺🇸";
+  if (n.includes("emilia") || n.includes("italian") || n.includes("san marino")) return "🇮🇹";
+  if (n.includes("monaco"))      return "🇲🇨";
+  if (n.includes("canadian"))    return "🇨🇦";
+  if (n.includes("spanish"))     return "🇪🇸";
+  if (n.includes("austrian"))    return "🇦🇹";
+  if (n.includes("british"))     return "🇬🇧";
+  if (n.includes("hungarian"))   return "🇭🇺";
+  if (n.includes("belgian"))     return "🇧🇪";
+  if (n.includes("dutch"))       return "🇳🇱";
+  if (n.includes("azerbaijan"))  return "🇦🇿";
+  if (n.includes("singapore"))   return "🇸🇬";
+  if (n.includes("mexico"))      return "🇲🇽";
+  if (n.includes("são paulo") || n.includes("sao paulo") || n.includes("brazil")) return "🇧🇷";
+  if (n.includes("qatar"))       return "🇶🇦";
+  if (n.includes("abu dhabi"))   return "🇦🇪";
+  return "🏁";
+}
+
+function formatRaceDate(isoDate?: string | null): string {
+  if (!isoDate) return "";
+  try {
+    const d = new Date(isoDate + "T00:00:00Z");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  } catch {
+    return isoDate;
+  }
+}
+
+// ─── Race type returned by /races API ────────────────────────────────────────
+interface RaceInfo {
+  id: number;
+  season: number;
+  round: number;
+  race_name: string;
+  date?: string | null;
+  circuit_name?: string | null;
+  country?: string | null;
+}
 
 const DRIVERS_FOR_PREDICT = [
   { code: "VER", name: "Max Verstappen" },
@@ -325,10 +349,17 @@ const CONFETTI_COLORS = ["#E10600", "#FFD700", "#00D2BE", "#FF8700", "#ffffff", 
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 export default function PredictionPage() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [season, setSeason] = useState<number>(2024);
   const [selectedRound, setSelectedRound] = useState<number | null>(null);
+
+  // Dynamic race list fetched from backend
+  const [races, setRaces] = useState<RaceInfo[]>([]);
+  const [racesLoading, setRacesLoading] = useState(false);
 
   const [podiumData, setPodiumData] = useState<PodiumDriver[] | null>(null);
   const [winProbData, setWinProbData] = useState<WinProbDriver[] | null>(null);
@@ -344,13 +375,34 @@ export default function PredictionPage() {
   const [confettiPieces, setConfettiPieces] = useState<{ id: number; delay: number; color: string; x: number }[]>([]);
 
   const calendarRef = useRef<HTMLDivElement>(null);
-  const races = RACES_BY_SEASON[season] ?? RACES_2024;
 
   // Check login state (optional — no redirect)
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     setIsLoggedIn(!!token);
   }, []);
+
+  // Fetch race list whenever season changes
+  useEffect(() => {
+    let cancelled = false;
+    setRacesLoading(true);
+    setRaces([]);
+    setSelectedRound(null);
+
+    fetch(`${API_BASE}/races?year=${season}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((data: RaceInfo[]) => {
+        if (!cancelled) setRaces(data);
+      })
+      .catch(() => {
+        // Silent fallback — races will just be empty; user sees loading skeleton
+      })
+      .finally(() => {
+        if (!cancelled) setRacesLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [season]);
 
   // Fetch predictions when race selected
   useEffect(() => {
@@ -442,6 +494,7 @@ export default function PredictionPage() {
   };
 
   const selectedRace = races.find((r) => r.round === selectedRound) ?? null;
+  const selectedRaceFlag = getRaceFlag(selectedRace?.country, selectedRace?.race_name);
 
   // Driver picker — exclude already chosen
   const available = (exclude1: string, exclude2: string) =>
@@ -498,7 +551,9 @@ export default function PredictionPage() {
                   <span className="w-2 h-2 rounded-full bg-green-400 pulse-red" />
                   <span className="text-xs text-gray-400 tracking-wider">MODEL ONLINE</span>
                 </div>
-                <p className="text-xs text-gray-600">Season {season} · 24 rounds</p>
+                <p className="text-xs text-gray-600">
+                  Season {season} · {racesLoading ? "…" : races.length} rounds
+                </p>
               </div>
             </div>
           </div>
@@ -542,42 +597,54 @@ export default function PredictionPage() {
               className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
-              {races.map((race) => {
-                const isSelected = selectedRound === race.round;
-                return (
-                  <button
-                    key={race.round}
-                    onClick={() => handleSelectRound(race.round)}
-                    className="snap-start shrink-0 flex flex-col items-start p-4 rounded-xl border transition-all duration-200 w-40 text-left"
-                    style={
-                      isSelected
-                        ? {
-                            background: "rgba(225,6,0,0.12)",
-                            borderColor: "#E10600",
-                            boxShadow: "0 0 24px rgba(225,6,0,0.3)",
-                          }
-                        : {
-                            background: "rgba(14,14,18,0.8)",
-                            borderColor: "rgba(255,255,255,0.06)",
-                          }
-                    }
-                  >
-                    <div className="flex items-center justify-between w-full mb-2">
-                      <span
-                        className="text-[10px] font-bold tracking-widest"
-                        style={{ color: isSelected ? "#E10600" : "#6b7280" }}
+              {racesLoading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="snap-start shrink-0 w-40 h-24 rounded-xl bg-white/5 animate-pulse"
+                    />
+                  ))
+                : races.map((race) => {
+                    const isSelected = selectedRound === race.round;
+                    const flag = getRaceFlag(race.country, race.race_name);
+                    const displayDate = formatRaceDate(race.date);
+                    const shortName = race.race_name
+                      .replace(" Grand Prix", "")
+                      .replace(" City", "");
+                    return (
+                      <button
+                        key={race.round}
+                        onClick={() => handleSelectRound(race.round)}
+                        className="snap-start shrink-0 flex flex-col items-start p-4 rounded-xl border transition-all duration-200 w-40 text-left"
+                        style={
+                          isSelected
+                            ? {
+                                background: "rgba(225,6,0,0.12)",
+                                borderColor: "#E10600",
+                                boxShadow: "0 0 24px rgba(225,6,0,0.3)",
+                              }
+                            : {
+                                background: "rgba(14,14,18,0.8)",
+                                borderColor: "rgba(255,255,255,0.06)",
+                              }
+                        }
                       >
-                        R{String(race.round).padStart(2, "0")}
-                      </span>
-                      <span className="text-lg">{race.flag}</span>
-                    </div>
-                    <p className="text-xs font-bold text-white leading-snug line-clamp-2 mb-1">
-                      {race.name.replace(" Grand Prix", "").replace(" City", "")}
-                    </p>
-                    <p className="text-[10px] text-gray-500">{race.date}</p>
-                  </button>
-                );
-              })}
+                        <div className="flex items-center justify-between w-full mb-2">
+                          <span
+                            className="text-[10px] font-bold tracking-widest"
+                            style={{ color: isSelected ? "#E10600" : "#6b7280" }}
+                          >
+                            R{String(race.round).padStart(2, "0")}
+                          </span>
+                          <span className="text-lg">{flag}</span>
+                        </div>
+                        <p className="text-xs font-bold text-white leading-snug line-clamp-2 mb-1">
+                          {shortName}
+                        </p>
+                        <p className="text-[10px] text-gray-500">{displayDate}</p>
+                      </button>
+                    );
+                  })}
             </div>
           </section>
 
@@ -599,7 +666,7 @@ export default function PredictionPage() {
                   </h2>
                   <span className="text-gray-600 text-xs">·</span>
                   <span className="text-xs text-gray-400">
-                    {selectedRace?.flag} {selectedRace?.name}
+                    {selectedRaceFlag} {selectedRace?.race_name}
                   </span>
                 </div>
 
@@ -740,7 +807,7 @@ export default function PredictionPage() {
                     </div>
                     <h3 className="text-2xl font-black text-white mb-2">Prediction Locked In!</h3>
                     <p className="text-gray-400 text-sm mb-6">
-                      {selectedRace?.flag} {selectedRace?.name} · Season {season}
+                      {selectedRaceFlag} {selectedRace?.race_name} · Season {season}
                     </p>
                     <div className="flex justify-center gap-4 flex-wrap">
                       {[userP1, userP2, userP3].map((code, i) => {

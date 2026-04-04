@@ -98,6 +98,27 @@ class Race_Results(Base):
     laps = Column(Integer)
     time = Column(String, nullable=True)
 
+class RaceSchedule(Base):
+    """
+    One row per race per season — stores schedule & circuit metadata.
+    Populated on startup from Jolpica API; falls back to static data.
+    """
+    __tablename__ = "race_schedule"
+
+    id = Column(Integer, primary_key=True, index=True)
+    season = Column(Integer, nullable=False, index=True)
+    round = Column(Integer, nullable=False)
+    race_name = Column(String, nullable=False)
+    date = Column(String, nullable=True)          # ISO date "YYYY-MM-DD"
+    time = Column(String, nullable=True)          # UTC time "HH:MM:SSZ"
+    circuit_id = Column(String, nullable=True)
+    circuit_name = Column(String, nullable=True)
+    locality = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
+
+
 class Prediction(Base):
     __tablename__ = "predictions"
 

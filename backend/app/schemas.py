@@ -68,7 +68,10 @@ class Race(BaseModel):
     season: int
     round: int
     race_name: str
-    
+    date: Optional[str] = None        # ISO date string, e.g. "2024-03-02"
+    circuit_name: Optional[str] = None
+    country: Optional[str] = None
+
     class Config:
         from_attributes = True
 

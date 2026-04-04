@@ -45,7 +45,8 @@ export const DRIVER_NAMES: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-const ERGAST_BASE = "https://ergast.com/api/f1";
+// Jolpica-F1 is the maintained drop-in replacement for the defunct Ergast API
+const ERGAST_BASE = "https://api.jolpi.ca/ergast/f1";
 const OPENF1_BASE = "https://api.openf1.org/v1";
 const LOCAL_BASE = "http://localhost:8000";
 

@@ -1,5 +1,90 @@
+import asyncio
+import logging
+
+import httpx
+
 from app.database import SessionLocal
 from app import models
+
+logger = logging.getLogger(__name__)
+
+JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1"
+
+
+def _fetch_jolpica(path: str) -> dict:
+    """Synchronous Jolpica-F1 API call used only during seeding."""
+    url = f"{JOLPICA_BASE}{path}"
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as exc:
+        logger.warning("Jolpica fetch failed for %s: %s", url, exc)
+        return {}
+
+
+def _fetch_real_race_results(year: int) -> list[dict]:
+    """
+    Fetch all race results for a season from Jolpica.
+    Returns a list of result dicts keyed by (round, driver_ref).
+    Falls back to empty list on any error.
+    """
+    rows = []
+    # First get the schedule so we know race names
+    sched_data = _fetch_jolpica(f"/{year}/races.json?limit=30")
+    races_meta = (
+        sched_data.get("MRData", {})
+        .get("RaceTable", {})
+        .get("Races", [])
+    )
+    race_names = {
+        int(r["round"]): r["raceName"]
+        for r in races_meta
+    }
+
+    if not race_names:
+        return []
+
+    print(f"  📡 Fetching {len(race_names)} race results from Jolpica for {year}...")
+
+    for rnd, race_name in race_names.items():
+        result_data = _fetch_jolpica(f"/{year}/{rnd}/results.json")
+        race_list = (
+            result_data.get("MRData", {})
+            .get("RaceTable", {})
+            .get("Races", [])
+        )
+        if not race_list:
+            # Race hasn't happened yet (future race) — add placeholder row
+            rows.append({
+                "season": year, "round": rnd, "race_name": race_name,
+                "driver_ref": "tbd", "constructor_ref": "tbd",
+                "grid": 0, "position": 0, "points": 0.0,
+                "status": "Scheduled", "laps": 0, "time": "",
+            })
+            continue
+
+        for r in race_list[0].get("Results", []):
+            driver = r.get("Driver", {})
+            constructor = r.get("Constructor", {})
+            pos_str = r.get("position", "0")
+            time_data = r.get("Time", {})
+            rows.append({
+                "season": year,
+                "round": rnd,
+                "race_name": race_name,
+                "driver_ref": driver.get("driverId", ""),
+                "constructor_ref": constructor.get("constructorId", ""),
+                "grid": int(r.get("grid", 0)),
+                "position": int(pos_str) if pos_str.isdigit() else 0,
+                "points": float(r.get("points", 0)),
+                "status": r.get("status", "Finished"),
+                "laps": int(r.get("laps", 0)),
+                "time": time_data.get("time", ""),
+            })
+
+    return rows
 
 # ─── Driver → Constructor mapping (used for race results) ───────────────────
 DRIVER_TEAM_REF = {
@@ -172,34 +257,115 @@ def seed_all():
 
         print(f"  ✅ {len(circuits)} circuits seeded")
 
-        # ── 4. RACE RESULTS (2024 season) ────────────────────────────────────
-        # Grid position ≈ finishing position with minor shuffle
-        GRID_OFFSETS = [0, 1, -1, 2, -2, 3, 1, -1, 2, 0,
-                        1, -1, 2, -2, 1, 0, -1, 2, 1, -1]
+        # ── 4. RACE SCHEDULE (from Jolpica) ──────────────────────────────────
+        db.query(models.RaceSchedule).delete()
+        db.commit()
 
-        result_rows = 0
-        for race in RACE_2024:
-            for pos_idx, driver_ref in enumerate(race["results"]):
-                finishing_pos = pos_idx + 1
-                grid_raw = finishing_pos + GRID_OFFSETS[pos_idx]
-                grid_pos = max(1, min(20, grid_raw))
-                pts = POINTS[pos_idx]
-                constructor_ref = DRIVER_TEAM_REF.get(driver_ref, "unknown")
-                db.add(models.Race_Results(
-                    season=2024,
-                    round=race["round"],
-                    race_name=race["name"],
-                    driver_ref=driver_ref,
-                    constructor_ref=constructor_ref,
-                    grid=grid_pos,
-                    position=finishing_pos,
-                    points=pts,
-                    status="Finished" if finishing_pos <= 18 else "DNF",
-                    laps=60,
+        sched_data = _fetch_jolpica("/2024/races.json?limit=30")
+        races_meta = sched_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+        if races_meta:
+            for r in races_meta:
+                circuit = r.get("Circuit", {})
+                loc = circuit.get("Location", {})
+                db.add(models.RaceSchedule(
+                    season=int(r.get("season", 2024)),
+                    round=int(r.get("round", 0)),
+                    race_name=r.get("raceName", ""),
+                    date=r.get("date", ""),
+                    time=r.get("time", ""),
+                    circuit_id=circuit.get("circuitId", ""),
+                    circuit_name=circuit.get("circuitName", ""),
+                    locality=loc.get("locality", ""),
+                    country=loc.get("country", ""),
+                    lat=float(loc.get("lat", 0) or 0),
+                    lng=float(loc.get("long", 0) or 0),
                 ))
-                result_rows += 1
+            print(f"  ✅ {len(races_meta)} race schedule rows seeded from Jolpica")
+        else:
+            # Static fallback schedule
+            _STATIC_SCHEDULE_2024 = [
+                (1, "Bahrain Grand Prix", "2024-03-02", "bahrain", "Bahrain International Circuit", "Sakhir", "Bahrain"),
+                (2, "Saudi Arabian Grand Prix", "2024-03-09", "jeddah", "Jeddah Corniche Circuit", "Jeddah", "Saudi Arabia"),
+                (3, "Australian Grand Prix", "2024-03-24", "albert_park", "Albert Park Circuit", "Melbourne", "Australia"),
+                (4, "Japanese Grand Prix", "2024-04-07", "suzuka", "Suzuka Circuit", "Suzuka", "Japan"),
+                (5, "Chinese Grand Prix", "2024-04-21", "shanghai", "Shanghai International Circuit", "Shanghai", "China"),
+                (6, "Miami Grand Prix", "2024-05-05", "miami", "Miami International Autodrome", "Miami", "USA"),
+                (7, "Emilia Romagna Grand Prix", "2024-05-19", "imola", "Autodromo Enzo e Dino Ferrari", "Imola", "Italy"),
+                (8, "Monaco Grand Prix", "2024-05-26", "monaco", "Circuit de Monaco", "Monte Carlo", "Monaco"),
+                (9, "Canadian Grand Prix", "2024-06-09", "villeneuve", "Circuit Gilles Villeneuve", "Montreal", "Canada"),
+                (10, "Spanish Grand Prix", "2024-06-23", "catalunya", "Circuit de Barcelona-Catalunya", "Montmelo", "Spain"),
+                (11, "Austrian Grand Prix", "2024-06-30", "red_bull_ring", "Red Bull Ring", "Spielberg", "Austria"),
+                (12, "British Grand Prix", "2024-07-07", "silverstone", "Silverstone Circuit", "Silverstone", "UK"),
+                (13, "Hungarian Grand Prix", "2024-07-21", "hungaroring", "Hungaroring", "Budapest", "Hungary"),
+                (14, "Belgian Grand Prix", "2024-07-28", "spa", "Circuit de Spa-Francorchamps", "Spa", "Belgium"),
+                (15, "Dutch Grand Prix", "2024-08-25", "zandvoort", "Circuit Zandvoort", "Zandvoort", "Netherlands"),
+                (16, "Italian Grand Prix", "2024-09-01", "monza", "Autodromo Nazionale di Monza", "Monza", "Italy"),
+                (17, "Azerbaijan Grand Prix", "2024-09-15", "baku", "Baku City Circuit", "Baku", "Azerbaijan"),
+                (18, "Singapore Grand Prix", "2024-09-22", "marina_bay", "Marina Bay Street Circuit", "Singapore", "Singapore"),
+                (19, "United States Grand Prix", "2024-10-20", "americas", "Circuit of the Americas", "Austin", "USA"),
+                (20, "Mexico City Grand Prix", "2024-10-27", "rodriguez", "Autodromo Hermanos Rodriguez", "Mexico City", "Mexico"),
+                (21, "São Paulo Grand Prix", "2024-11-03", "interlagos", "Autodromo Jose Carlos Pace", "São Paulo", "Brazil"),
+                (22, "Las Vegas Grand Prix", "2024-11-23", "las_vegas", "Las Vegas Street Circuit", "Las Vegas", "USA"),
+                (23, "Qatar Grand Prix", "2024-12-01", "losail", "Losail International Circuit", "Lusail", "Qatar"),
+                (24, "Abu Dhabi Grand Prix", "2024-12-08", "yas_marina", "Yas Marina Circuit", "Abu Dhabi", "UAE"),
+            ]
+            for rnd, rname, rdate, cid, cname, locality, country in _STATIC_SCHEDULE_2024:
+                db.add(models.RaceSchedule(
+                    season=2024, round=rnd, race_name=rname, date=rdate,
+                    circuit_id=cid, circuit_name=cname, locality=locality, country=country,
+                ))
+            print(f"  ✅ {len(_STATIC_SCHEDULE_2024)} race schedule rows seeded (static fallback)")
 
-        print(f"  ✅ {result_rows} race result rows seeded (2024 season)")
+        db.commit()
+
+        # ── 5. RACE RESULTS ──────────────────────────────────────────────────
+        # Try to fetch real data from Jolpica first; fall back to static data.
+        live_rows = _fetch_real_race_results(2024)
+
+        if live_rows:
+            for row in live_rows:
+                db.add(models.Race_Results(
+                    season=row["season"],
+                    round=row["round"],
+                    race_name=row["race_name"],
+                    driver_ref=row["driver_ref"],
+                    constructor_ref=row["constructor_ref"],
+                    grid=row["grid"],
+                    position=row["position"],
+                    points=row["points"],
+                    status=row["status"],
+                    laps=row["laps"],
+                    time=row.get("time", ""),
+                ))
+            print(f"  ✅ {len(live_rows)} race result rows seeded from Jolpica API (2024 season)")
+        else:
+            # ── Offline fallback: static 2024 results ─────────────────────
+            print("  ⚠️  Jolpica unavailable — using static fallback data")
+            GRID_OFFSETS = [0, 1, -1, 2, -2, 3, 1, -1, 2, 0,
+                            1, -1, 2, -2, 1, 0, -1, 2, 1, -1]
+
+            result_rows = 0
+            for race in RACE_2024:
+                for pos_idx, driver_ref in enumerate(race["results"]):
+                    finishing_pos = pos_idx + 1
+                    grid_raw = finishing_pos + GRID_OFFSETS[pos_idx]
+                    grid_pos = max(1, min(20, grid_raw))
+                    pts = POINTS[pos_idx]
+                    constructor_ref = DRIVER_TEAM_REF.get(driver_ref, "unknown")
+                    db.add(models.Race_Results(
+                        season=2024,
+                        round=race["round"],
+                        race_name=race["name"],
+                        driver_ref=driver_ref,
+                        constructor_ref=constructor_ref,
+                        grid=grid_pos,
+                        position=finishing_pos,
+                        points=pts,
+                        status="Finished" if finishing_pos <= 18 else "DNF",
+                        laps=60,
+                    ))
+                    result_rows += 1
+            print(f"  ✅ {result_rows} race result rows seeded (static fallback)")
 
         db.commit()
         print("✅ Full database seed complete!")
