@@ -246,115 +246,257 @@ def calculate_confidence_score(
     return min(100, max(0, combined))
 
 
+# ── Driver / Constructor resolution helpers ───────────────────────────────────
+
+_DRIVER_NAME_CORRECTIONS: dict = {
+    "perez": "Pérez",
+    "hulkenberg": "Hülkenberg",
+    "raikkonen": "Räikkönen",
+    "kovalainen": "Kovalainen",
+    "bottas": "Bottas",
+    "magnussen": "Magnussen",
+    "guanyu": "Guanyu",
+    "zhou": "Zhou",
+}
+
+_CONSTRUCTOR_ALIAS: dict = {
+    "red_bull": "Red Bull",
+    "alphatauri": "AlphaTauri",
+    "alpha_tauri": "AlphaTauri",
+    "rb": "RB",
+    "vcarb": "RB",
+    "alfa": "Alfa Romeo",
+    "alfa_romeo": "Alfa Romeo",
+    "haas": "Haas",
+    "williams": "Williams",
+    "mercedes": "Mercedes",
+    "ferrari": "Ferrari",
+    "mclaren": "McLaren",
+    "aston_martin": "Aston Martin",
+    "alpine": "Alpine",
+    "sauber": "Sauber",
+    "kick_sauber": "Sauber",
+}
+
+
+def _resolve_driver(driver_ref: str, db: Session) -> Optional[models.Driver]:
+    """Resolve driver_ref → Driver ORM, trying multiple strategies."""
+    family_part = driver_ref.split("_")[-1].lower()
+
+    # Strategy 1: known correction map (handles accents)
+    corrected = _DRIVER_NAME_CORRECTIONS.get(family_part)
+    if corrected:
+        driver = db.query(models.Driver).filter(
+            models.Driver.family_name == corrected
+        ).first()
+        if driver:
+            return driver
+
+    # Strategy 2: case-insensitive exact family name
+    driver = db.query(models.Driver).filter(
+        models.Driver.family_name.ilike(family_part)
+    ).first()
+    if driver:
+        return driver
+
+    # Strategy 3: family name contains the part (compound/hyphenated names)
+    driver = db.query(models.Driver).filter(
+        models.Driver.family_name.ilike(f"%{family_part}%")
+    ).first()
+    return driver
+
+
+def _resolve_constructor(constructor_ref: str, db: Session) -> Optional[models.Team]:
+    """Resolve constructor_ref → Team ORM, trying multiple strategies."""
+    ref_lower = constructor_ref.lower()
+
+    # Strategy 1: known alias map
+    alias_name = _CONSTRUCTOR_ALIAS.get(ref_lower)
+    if alias_name:
+        team = db.query(models.Team).filter(
+            models.Team.name.ilike(f"%{alias_name}%")
+        ).first()
+        if team:
+            return team
+
+    # Strategy 2: replace underscores, ilike match
+    clean_ref = constructor_ref.replace("_", " ")
+    team = db.query(models.Team).filter(
+        models.Team.name.ilike(f"%{clean_ref}%")
+    ).first()
+    if team:
+        return team
+
+    # Strategy 3: first word only (e.g. "mercedes_amg" → "Mercedes")
+    first_word = clean_ref.split()[0] if clean_ref.split() else clean_ref
+    return db.query(models.Team).filter(
+        models.Team.name.ilike(f"%{first_word}%")
+    ).first()
+
+
+def _resolve_circuit(race_name: str, db: Session) -> Optional[models.Circuit]:
+    """Best-effort circuit lookup from a race name string."""
+    # Strip " Grand Prix" suffix and try increasingly loose matches
+    stripped = race_name.replace(" Grand Prix", "").strip()
+    for fragment in [stripped, stripped.split()[-1], stripped.split()[0]]:
+        circuit = db.query(models.Circuit).filter(
+            models.Circuit.name.ilike(f"%{fragment}%")
+        ).first()
+        if circuit:
+            return circuit
+    return None
+
+
+def _statistical_podium_fallback(
+    season: int, round_num: int, race_name: str,
+    race_drivers: list, db: Session
+) -> "RacePredictionResponse":
+    """Return a stats-based podium when the ML model is unavailable."""
+    candidates = []
+    for rd in race_drivers:
+        driver = _resolve_driver(rd.driver_ref, db)
+        if not driver:
+            continue
+
+        recent = db.query(models.Race_Results).filter(
+            models.Race_Results.driver_ref == rd.driver_ref,
+            models.Race_Results.season >= season - 1,
+        ).order_by(
+            models.Race_Results.season.desc(),
+            models.Race_Results.round.desc(),
+        ).limit(10).all()
+
+        rating = float(driver.rating) if driver.rating else 50.0
+        if recent:
+            avg_pos = float(np.mean([r.position if r.position else 20 for r in recent]))
+            pts_avg = float(np.mean([r.points if r.points else 0 for r in recent]))
+        else:
+            avg_pos, pts_avg = 15.0, 0.0
+
+        form_index = float(max(0.0, min(100.0,
+            rating * 0.4 + (20.0 - avg_pos) / 20.0 * 40.0 + pts_avg / 25.0 * 20.0
+        )))
+        constructor = _resolve_constructor(rd.constructor_ref, db)
+        candidates.append({
+            "driver_id": driver.id,
+            "driver_name": f"{driver.given_name} {driver.family_name}",
+            "constructor": constructor.name if constructor else rd.constructor_ref.replace("_", " ").title(),
+            "predicted_position": avg_pos,
+            "confidence": round(form_index * 0.8, 1),
+            "form_index": round(form_index, 1),
+        })
+
+    candidates.sort(key=lambda x: x["predicted_position"])
+    podium = candidates[:3]
+
+    if not podium:
+        raise HTTPException(status_code=404, detail="Insufficient driver data for statistical prediction")
+
+    podium_predictions = [
+        PodiumPrediction(
+            position=i + 1,
+            driver_id=p["driver_id"],
+            driver_name=p["driver_name"],
+            constructor=p["constructor"],
+            predicted_finish_position=round(p["predicted_position"], 2),
+            confidence_score=p["confidence"],
+            form_index=p["form_index"],
+        )
+        for i, p in enumerate(podium)
+    ]
+    return RacePredictionResponse(
+        season=season,
+        round=round_num,
+        circuit_name=race_name,
+        podium=podium_predictions,
+        overall_confidence=round(float(np.mean([p.confidence_score for p in podium_predictions])), 1),
+        generated_at=datetime.utcnow().isoformat() + "Z",
+    )
+
+
 @router.post("/podium", response_model=RacePredictionResponse)
 async def predict_podium(request: RaceRequest, db: Session = Depends(get_db)):
     """
     Predict the podium for a given season and round.
-    
-    Returns top 3 drivers with lowest predicted finishing positions.
+    Falls back to statistical prediction when the ML model is unavailable.
     """
     model, scaler, features_cols = load_model()
-    
-    if model is None:
-        raise HTTPException(
-            status_code=503,
-            detail="ML model not loaded. Please run train_model.py first."
-        )
-    
+
     try:
-        # Get all drivers participating in this race
         race_drivers = db.query(models.Race_Results).filter(
             models.Race_Results.season == request.season,
             models.Race_Results.round == request.round
         ).all()
-        
+
         if not race_drivers:
             raise HTTPException(status_code=404, detail="No drivers found for this race")
-        
-        # Get race name from the first driver result
+
         race_name = race_drivers[0].race_name
-        
+
+        # Statistical fallback when model unavailable
+        if model is None:
+            return _statistical_podium_fallback(
+                request.season, request.round, race_name, race_drivers, db
+            )
+
+        # Resolve circuit once (outside driver loop)
+        circuit = _resolve_circuit(race_name, db)
+        circuit_id = circuit.id if circuit else 0
+
         predictions = []
-        
+
         for race_driver in race_drivers:
-            # Find driver by matching family name with driver_ref
-            # Extract family name from driver_ref (last part after underscore)
-            driver_family_name = race_driver.driver_ref.split('_')[-1].title()
-            # Handle special cases for accented names
-            driver_name_map = {
-                'Perez': 'Pérez',
-                'Hulkenberg': 'Hülkenberg',
-            }
-            if driver_family_name in driver_name_map:
-                driver_family_name = driver_name_map[driver_family_name]
-            
-            driver = db.query(models.Driver).filter(
-                models.Driver.family_name == driver_family_name
-            ).first()
-            
-            # Find constructor by matching name with constructor_ref
-            constructor_ref_clean = race_driver.constructor_ref.replace('_', ' ').title()
-            constructor = db.query(models.Team).filter(
-                models.Team.name.ilike(f'%{constructor_ref_clean}%')
-            ).first()
-            
-            if not driver or not constructor:
+            driver = _resolve_driver(race_driver.driver_ref, db)
+            constructor = _resolve_constructor(race_driver.constructor_ref, db)
+
+            if not driver:
                 continue
-            
-            # Find circuit by name (try multiple variations)
-            circuit_name_search = race_name.replace(' Grand Prix', '')
-            circuit = db.query(models.Circuit).filter(
-                models.Circuit.name.ilike(f'%{circuit_name_search}%')
-            ).first()
-            
-            if not circuit:
-                continue
-            
-            # Build features
+
             features_dict = build_driver_features(
                 driver_id=driver.id,
                 grid_position=float(race_driver.grid if race_driver.grid else 20),
-                circuit_id=circuit.id,
+                circuit_id=circuit_id,
                 season=request.season,
                 constructor_ref=race_driver.constructor_ref,
                 db=db
             )
-            
+
             if not features_dict:
                 continue
-            
+
             try:
-                # Create feature vector in correct order
                 X = np.array([[features_dict.get(col, 0) for col in features_cols]])
                 X_scaled = scaler.transform(X)
-                
-                # Predict
                 predicted_position = float(model.predict(X_scaled)[0])
-                predicted_position = max(1, min(20, predicted_position))  # Clamp 1-20
-                
+                predicted_position = max(1, min(20, predicted_position))
+
                 confidence = calculate_confidence_score(
                     predicted_position,
                     features_dict['driver_form_index'],
                     features_dict['constructor_reliability']
                 )
-                
+
                 predictions.append({
                     'driver_id': driver.id,
                     'driver_name': f"{driver.given_name} {driver.family_name}",
-                    'constructor': constructor.name,
+                    'constructor': constructor.name if constructor else race_driver.constructor_ref.replace('_', ' ').title(),
                     'predicted_position': predicted_position,
                     'confidence': confidence,
                     'form_index': features_dict['driver_form_index']
                 })
             except Exception as e:
-                print(f"Error predicting for {driver.family_name}: {e}")
+                logger.warning(f"Skipping {race_driver.driver_ref} during prediction: {e}")
                 continue
-        
-        # Sort by predicted position and get top 3
+
+        if not predictions:
+            # All drivers failed ML prediction — fall back to stats
+            return _statistical_podium_fallback(
+                request.season, request.round, race_name, race_drivers, db
+            )
+
         predictions.sort(key=lambda x: x['predicted_position'])
         podium = predictions[:3]
-        
-        # Create response
+
         podium_predictions = [
             PodiumPrediction(
                 position=i + 1,
@@ -367,9 +509,9 @@ async def predict_podium(request: RaceRequest, db: Session = Depends(get_db)):
             )
             for i, p in enumerate(podium)
         ]
-        
-        overall_confidence = round(np.mean([p.confidence_score for p in podium_predictions]), 1)
-        
+
+        overall_confidence = round(float(np.mean([p.confidence_score for p in podium_predictions])), 1)
+
         return RacePredictionResponse(
             season=request.season,
             round=request.round,
@@ -378,7 +520,7 @@ async def predict_podium(request: RaceRequest, db: Session = Depends(get_db)):
             overall_confidence=overall_confidence,
             generated_at=datetime.utcnow().isoformat() + "Z"
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -400,35 +542,32 @@ async def predict_overtakes(request: RaceRequest, db: Session = Depends(get_db))
         )
     
     try:
-        # Get race
-        race = db.query(models.Race).filter(
-            models.Race.season == request.season,
-            models.Race.round == request.round
-        ).first()
-        
-        if not race:
-            raise HTTPException(status_code=404, detail="Race not found")
-        
         race_drivers = db.query(models.Race_Results).filter(
             models.Race_Results.season == request.season,
             models.Race_Results.round == request.round
         ).all()
-        
+
+        if not race_drivers:
+            raise HTTPException(status_code=404, detail="Race not found")
+
+        race_name = race_drivers[0].race_name
+        circuit = _resolve_circuit(race_name, db)
+        circuit_id = circuit.id if circuit else 0
+
         overtake_predictions = []
-        
+
         for race_driver in race_drivers:
-            driver = db.query(models.Driver).filter(
-                models.Driver.id == race_driver.driver_id
-            ).first()
-            
+            driver = _resolve_driver(race_driver.driver_ref, db)
+
             if not driver or not race_driver.grid:
                 continue
-            
+
             features_dict = build_driver_features(
                 driver_id=driver.id,
                 grid_position=float(race_driver.grid),
-                circuit_id=race.circuit_id,
+                circuit_id=circuit_id,
                 season=request.season,
+                constructor_ref=race_driver.constructor_ref,
                 db=db
             )
             
@@ -493,25 +632,16 @@ async def get_win_probabilities(season: int, round: int, db: Session = Depends(g
     driver_scores: list[dict] = []
 
     for result in race_results:
-        # Resolve Driver ORM object by matching driver_ref to family_name
-        driver_family_name = result.driver_ref.split("_")[-1].title()
-        name_corrections = {
-            "Perez": "Pérez",
-            "Hulkenberg": "Hülkenberg",
-        }
-        driver_family_name = name_corrections.get(driver_family_name, driver_family_name)
-
-        driver_obj = db.query(models.Driver).filter(
-            models.Driver.family_name == driver_family_name
-        ).first()
+        driver_obj = _resolve_driver(result.driver_ref, db)
+        constructor_obj = _resolve_constructor(result.constructor_ref, db)
 
         full_name = (
             f"{driver_obj.given_name} {driver_obj.family_name}"
             if driver_obj
-            else driver_family_name
+            else result.driver_ref.split("_")[-1].title()
         )
         driver_code = result.driver_ref.upper()[:3]
-        team = result.constructor_ref.replace("_", " ").title()
+        team = constructor_obj.name if constructor_obj else result.constructor_ref.replace("_", " ").title()
         rating = float(driver_obj.rating) if driver_obj else 50.0
 
         if use_model and driver_obj:
