@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException
+import logging
+
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import date
@@ -13,6 +15,11 @@ from app.routes import f1, profile, prediction
 from app.schemas import PredictionCreate
 from sqlalchemy import text, func
 from app.seed import seed_all
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -31,6 +38,31 @@ def startup():
         seed_all()
     except Exception as e:
         print("❌ AUTO-SEED ERROR:", e)
+
+    # Start APScheduler — refresh race data every Monday at 04:00 UTC
+    # (most GPs finish Sunday evening; results are final by Monday 4AM)
+    try:
+        scheduler = BackgroundScheduler(timezone="UTC")
+        scheduler.add_job(
+            _scheduled_data_refresh,
+            trigger=CronTrigger(day_of_week="mon", hour=4, minute=0),
+            id="weekly_data_refresh",
+            replace_existing=True,
+        )
+        scheduler.start()
+        print("✅ APScheduler started — weekly refresh every Monday 04:00 UTC")
+    except Exception as e:
+        print("❌ SCHEDULER ERROR:", e)
+
+
+def _scheduled_data_refresh():
+    """Background job: sync latest race results and retrain model."""
+    try:
+        from scripts.update_data import run_update
+        result = run_update()
+        logger.info("Scheduled refresh result: %s", result)
+    except Exception as e:
+        logger.error("Scheduled refresh failed: %s", e)
 
 
 # ✅ INCLUDE ROUTES
@@ -120,6 +152,36 @@ def run_seed(secret: str):
     seed_all()
 
     return {"message": "SEED COMPLETED ✅"}
+
+
+@app.post("/admin/refresh")
+def admin_refresh(
+    background_tasks: BackgroundTasks,
+    secret: str = Query(...),
+    season: int = Query(None),
+    retrain: bool = Query(True),
+):
+    """
+    Manually trigger a race-data sync (and optional model retrain).
+
+    Usage:
+        POST /admin/refresh?secret=harsh123
+        POST /admin/refresh?secret=harsh123&season=2025&retrain=false
+    """
+    if secret != "harsh123":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    def _run():
+        from scripts.update_data import run_update
+        result = run_update(season=season, retrain=retrain)
+        logger.info("Manual refresh result: %s", result)
+
+    background_tasks.add_task(_run)
+    return {
+        "message": "Data refresh started in background",
+        "season": season or "current year",
+        "retrain": retrain,
+    }
 
 @app.get("/debug/drivers-count")
 def debug_drivers(db: Session = Depends(get_db)):
