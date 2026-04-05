@@ -20,6 +20,7 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
 // Driver code → full name mapping
 // ---------------------------------------------------------------------------
 export const DRIVER_NAMES: Record<string, string> = {
+  // Active 2025 drivers
   VER: "Max Verstappen",
   NOR: "Lando Norris",
   LEC: "Charles Leclerc",
@@ -32,14 +33,21 @@ export const DRIVER_NAMES: Record<string, string> = {
   TSU: "Yuki Tsunoda",
   ALB: "Alexander Albon",
   HUL: "Nico Hulkenberg",
-  MAG: "Kevin Magnussen",
-  OCO: "Esteban Ocon",
   GAS: "Pierre Gasly",
   BOT: "Valtteri Bottas",
-  ZHO: "Zhou Guanyu",
-  SAR: "Logan Sargeant",
   BEA: "Oliver Bearman",
   LAW: "Liam Lawson",
+  // New for 2025
+  ANT: "Kimi Antonelli",
+  DOO: "Jack Doohan",
+  BOR: "Gabriel Bortoleto",
+  HAD: "Isack Hadjar",
+  // Retired / left grid after 2024
+  MAG: "Kevin Magnussen",
+  OCO: "Esteban Ocon",
+  ZHO: "Zhou Guanyu",
+  SAR: "Logan Sargeant",
+  PER: "Sergio Perez",
 };
 
 // ---------------------------------------------------------------------------
