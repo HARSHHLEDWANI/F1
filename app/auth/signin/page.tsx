@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { signIn } from "next-auth/react";
 import { apiFetch } from "@/lib/api";
 
 const SteeringWheel3D = dynamic(
@@ -1082,28 +1083,36 @@ export default function SignInPage() {
               {/* ── SOCIAL BUTTONS ── */}
               <div style={{ display: "flex", gap: 10 }}>
                 {[
-                  { label: "GOOGLE", icon: <IconGoogle /> },
-                  { label: "GITHUB", icon: <IconGitHub /> },
+                  { label: "GOOGLE", icon: <IconGoogle />, provider: "google" as const },
+                  { label: "GITHUB", icon: <IconGitHub />, provider: "github" as const },
                 ].map((s) => (
                   <button
                     key={s.label}
-                    disabled
+                    onClick={() => signIn(s.provider, { callbackUrl: "/auth/callback" })}
                     style={{
                       flex: 1,
                       padding: "11px 0",
                       background: "rgba(255,255,255,0.03)",
                       border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: 4,
-                      color: "rgba(232,232,240,0.55)",
+                      color: "rgba(232,232,240,0.75)",
                       fontSize: 10,
                       fontWeight: 700,
                       letterSpacing: "0.15em",
-                      cursor: "not-allowed",
+                      cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 8,
                       transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)";
                     }}
                   >
                     {s.icon}

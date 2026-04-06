@@ -12,7 +12,7 @@ from .dependencies import get_current_user
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import f1, profile, prediction
-from app.schemas import PredictionCreate
+from app.schemas import PredictionCreate, OAuthLogin
 from sqlalchemy import text, func
 from app.seed import seed_all
 
@@ -140,6 +140,25 @@ def login(
     except Exception as e:
         print("🔥 LOGIN ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/oauth-login")
+def oauth_login(data: OAuthLogin, db: Session = Depends(get_db)):
+    """Find or create a user via OAuth provider, return a backend JWT."""
+    user = db.query(models.User).filter(models.User.email == data.email).first()
+    if not user:
+        user = models.User(
+            email=data.email,
+            name=data.name or data.email.split("@")[0],
+            hashed_password="",  # OAuth users have no password
+            is_pro=False,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token = create_access_token({"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # ================= PREDICT =================

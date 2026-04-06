@@ -181,3 +181,8 @@ class PredictionCreate(BaseModel):
 class UpdatePreferences(BaseModel):
     favorite_team: Optional[str] = None
     favorite_driver: Optional[str] = None
+
+class OAuthLogin(BaseModel):
+    email: str
+    name: Optional[str] = None
+    provider: str
