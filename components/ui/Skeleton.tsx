@@ -2,25 +2,28 @@
  * Reusable skeleton / shimmer primitives for loading states.
  * All variants use the same F1-themed dark palette.
  */
+import { HTMLAttributes } from "react";
 
-export function Skeleton({ className = "" }: { className?: string }) {
+export function Skeleton({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={`animate-pulse rounded bg-white/5 ${className}`}
+      {...props}
     />
   );
 }
 
 /** Full-width text line placeholder */
-export function SkeletonText({ className = "" }: { className?: string }) {
-  return <Skeleton className={`h-4 w-full ${className}`} />;
+export function SkeletonText({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <Skeleton className={`h-4 w-full ${className}`} {...props} />;
 }
 
 /** Rectangular card shell */
-export function SkeletonCard({ className = "" }: { className?: string }) {
+export function SkeletonCard({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={`animate-pulse rounded-lg border border-white/5 bg-white/3 p-4 ${className}`}
+      {...props}
     >
       <Skeleton className="h-40 w-full mb-4" />
       <SkeletonText className="mb-2" />
