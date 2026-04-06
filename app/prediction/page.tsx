@@ -5,36 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/navbar";
 import { apiFetch } from "@/lib/api";
 
-// ─── Static Fallback Data ───────────────────────────────────────────────────
+// ─── Static Fallback Data (shown only when backend is unreachable) ───────────
+// These are intentionally generic — the backend provides real predictions.
 
-const FALLBACK_WIN_PROBS = [
-  { driver_code: "VER", driver_name: "Max Verstappen", team: "Red Bull", teamColor: "#0600EF", win_probability: 0.38, podium_probability: 0.72 },
-  { driver_code: "NOR", driver_name: "Lando Norris", team: "McLaren", teamColor: "#FF8700", win_probability: 0.22, podium_probability: 0.58 },
-  { driver_code: "LEC", driver_name: "Charles Leclerc", team: "Ferrari", teamColor: "#DC0000", win_probability: 0.18, podium_probability: 0.52 },
-  { driver_code: "PIA", driver_name: "Oscar Piastri", team: "McLaren", teamColor: "#FF8700", win_probability: 0.10, podium_probability: 0.38 },
-  { driver_code: "SAI", driver_name: "Carlos Sainz", team: "Ferrari", teamColor: "#DC0000", win_probability: 0.06, podium_probability: 0.28 },
-  { driver_code: "RUS", driver_name: "George Russell", team: "Mercedes", teamColor: "#00D2BE", win_probability: 0.04, podium_probability: 0.22 },
-  { driver_code: "HAM", driver_name: "Lewis Hamilton", team: "Mercedes", teamColor: "#00D2BE", win_probability: 0.02, podium_probability: 0.14 },
-];
-
-const FALLBACK_PODIUM = [
-  { driver_code: "VER", driver_name: "Max Verstappen", team: "Red Bull", teamColor: "#0600EF", confidence: 82, form_index: 0.91, grid_pos: 1, predicted_pos: 1 },
-  { driver_code: "NOR", driver_name: "Lando Norris", team: "McLaren", teamColor: "#FF8700", confidence: 71, form_index: 0.78, grid_pos: 3, predicted_pos: 2 },
-  { driver_code: "LEC", driver_name: "Charles Leclerc", team: "Ferrari", teamColor: "#DC0000", confidence: 63, form_index: 0.72, grid_pos: 2, predicted_pos: 3 },
-];
-
-const FALLBACK_OVERTAKES = [
-  { driver_code: "ALO", driver_name: "Fernando Alonso", team: "Aston Martin", teamColor: "#006F62", grid_pos: 8, predicted_pos: 5, overtake_prob: 0.74 },
-  { driver_code: "HAM", driver_name: "Lewis Hamilton", team: "Mercedes", teamColor: "#00D2BE", grid_pos: 7, predicted_pos: 5, overtake_prob: 0.68 },
-  { driver_code: "RUS", driver_name: "George Russell", team: "Mercedes", teamColor: "#00D2BE", grid_pos: 6, predicted_pos: 4, overtake_prob: 0.61 },
-  { driver_code: "PIA", driver_name: "Oscar Piastri", team: "McLaren", teamColor: "#FF8700", grid_pos: 5, predicted_pos: 4, overtake_prob: 0.55 },
-  { driver_code: "SAI", driver_name: "Carlos Sainz", team: "Ferrari", teamColor: "#DC0000", grid_pos: 9, predicted_pos: 7, overtake_prob: 0.48 },
-  { driver_code: "TSU", driver_name: "Yuki Tsunoda", team: "RB", teamColor: "#6692FF", grid_pos: 12, predicted_pos: 10, overtake_prob: 0.44 },
-  { driver_code: "STR", driver_name: "Lance Stroll", team: "Aston Martin", teamColor: "#006F62", grid_pos: 10, predicted_pos: 9, overtake_prob: 0.39 },
-  { driver_code: "GAS", driver_name: "Pierre Gasly", team: "Alpine", teamColor: "#0090FF", grid_pos: 13, predicted_pos: 11, overtake_prob: 0.33 },
-  { driver_code: "ALB", driver_name: "Alex Albon", team: "Williams", teamColor: "#64C4FF", grid_pos: 14, predicted_pos: 12, overtake_prob: 0.27 },
-  { driver_code: "OCO", driver_name: "Esteban Ocon", team: "Alpine", teamColor: "#0090FF", grid_pos: 11, predicted_pos: 13, overtake_prob: 0.21 },
-];
+const FALLBACK_WIN_PROBS: WinProbDriver[] = [];   // empty → UI shows "no data" state
+const FALLBACK_PODIUM: PodiumDriver[] = [];
+const FALLBACK_OVERTAKES: OvertakeDriver[] = [];
 
 // ─── Country → flag emoji mapping ───────────────────────────────────────────
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -115,38 +91,20 @@ interface RaceInfo {
   country?: string | null;
 }
 
-const DRIVERS_FOR_PREDICT = [
-  { code: "VER", name: "Max Verstappen" },
-  { code: "NOR", name: "Lando Norris" },
-  { code: "LEC", name: "Charles Leclerc" },
-  { code: "PIA", name: "Oscar Piastri" },
-  { code: "SAI", name: "Carlos Sainz" },
-  { code: "RUS", name: "George Russell" },
-  { code: "HAM", name: "Lewis Hamilton" },
-  { code: "ALO", name: "Fernando Alonso" },
-  { code: "STR", name: "Lance Stroll" },
-  { code: "TSU", name: "Yuki Tsunoda" },
-  { code: "ALB", name: "Alex Albon" },
-  { code: "HUL", name: "Nico Hulkenberg" },
-  { code: "MAG", name: "Kevin Magnussen" },
-  { code: "OCO", name: "Esteban Ocon" },
-  { code: "GAS", name: "Pierre Gasly" },
-  { code: "BOT", name: "Valtteri Bottas" },
-  { code: "ZHO", name: "Guanyu Zhou" },
-  { code: "SAR", name: "Logan Sargeant" },
-  { code: "BEA", name: "Oliver Bearman" },
-  { code: "LAW", name: "Liam Lawson" },
-];
-
 // ─── Derive code from full driver name (family-name key) ────────────────────
-const FAMILY_TO_CODE: Record<string, string> = Object.fromEntries(
-  DRIVERS_FOR_PREDICT.map((d) => [d.name.split(" ").pop()!.toLowerCase(), d.code])
-);
+// Built dynamically per season from Ergast driver standings.
 
-function getDriverCode(fullName?: string | null): string {
+function buildFamilyToCode(drivers: { code: string; name: string }[]): Record<string, string> {
+  return Object.fromEntries(
+    drivers.map((d) => [d.name.split(" ").pop()!.toLowerCase(), d.code])
+  );
+}
+
+function getDriverCode(fullName?: string | null, familyToCode?: Record<string, string>): string {
   if (!fullName) return "???";
   const family = fullName.split(" ").pop()?.toLowerCase() ?? "";
-  return FAMILY_TO_CODE[family] ?? fullName.slice(0, 3).toUpperCase();
+  const map = familyToCode ?? {};
+  return map[family] ?? fullName.slice(0, 3).toUpperCase();
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -389,6 +347,10 @@ export default function PredictionPage() {
   const [season, setSeason] = useState<number>(2024);
   const [selectedRound, setSelectedRound] = useState<number | null>(null);
 
+  // Driver list for the selected season (fetched from Ergast)
+  const [seasonDrivers, setSeasonDrivers] = useState<{ code: string; name: string }[]>([]);
+  const familyToCode = buildFamilyToCode(seasonDrivers);
+
   // Dynamic race list fetched from backend
   const [races, setRaces] = useState<RaceInfo[]>([]);
   const [racesLoading, setRacesLoading] = useState(false);
@@ -413,6 +375,21 @@ export default function PredictionPage() {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     setIsLoggedIn(!!token);
   }, []);
+
+  // Fetch driver list from Ergast whenever season changes
+  useEffect(() => {
+    let cancelled = false;
+    import("@/lib/f1api").then((m) => m.fetchDriverStandings(season)).then((standings) => {
+      if (cancelled) return;
+      setSeasonDrivers(
+        standings.map((s) => ({
+          code: s.Driver.code ?? s.Driver.driverId.slice(0, 3).toUpperCase(),
+          name: `${s.Driver.givenName} ${s.Driver.familyName}`,
+        }))
+      );
+    }).catch(() => { /* keep previous list */ });
+    return () => { cancelled = true; };
+  }, [season]);
 
   // Fetch race list whenever season changes
   useEffect(() => {
@@ -459,7 +436,7 @@ export default function PredictionPage() {
             setPodiumData(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               data.podium.map((p: any) => ({
-                driver_code:  getDriverCode(p.driver_name),
+                driver_code:  getDriverCode(p.driver_name, familyToCode),
                 driver_name:  p.driver_name,
                 team:         p.constructor ?? p.team ?? "Unknown",
                 teamColor:    getTeamColor(p.constructor ?? p.team),
@@ -490,7 +467,7 @@ export default function PredictionPage() {
             setWinProbData(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               probs.slice(0, 8).map((d: any) => ({
-                driver_code:       getDriverCode(d.driver_name) || d.driver_code,
+                driver_code:       getDriverCode(d.driver_name, familyToCode) || d.driver_code,
                 driver_name:       d.driver_name,
                 team:              d.team,
                 teamColor:         getTeamColor(d.team),
@@ -561,7 +538,7 @@ export default function PredictionPage() {
 
   // Driver picker — exclude already chosen
   const available = (exclude1: string, exclude2: string) =>
-    DRIVERS_FOR_PREDICT.filter((d) => d.code !== exclude1 && d.code !== exclude2);
+    seasonDrivers.filter((d) => d.code !== exclude1 && d.code !== exclude2);
 
   const maxWinProb = winProbData ? Math.max(...winProbData.map((d) => d.win_probability)) : 1;
 
@@ -874,7 +851,7 @@ export default function PredictionPage() {
                     </p>
                     <div className="flex justify-center gap-4 flex-wrap">
                       {[userP1, userP2, userP3].map((code, i) => {
-                        const driver = DRIVERS_FOR_PREDICT.find((d) => d.code === code);
+                        const driver = seasonDrivers.find((d: { code: string; name: string }) => d.code === code);
                         const medal = MEDAL[i + 1];
                         return (
                           <div

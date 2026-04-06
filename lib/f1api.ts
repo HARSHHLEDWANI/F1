@@ -1,5 +1,3 @@
-"use client";
-
 // ---------------------------------------------------------------------------
 // Team colours
 // ---------------------------------------------------------------------------
@@ -58,9 +56,11 @@ const ERGAST_BASE = "https://api.jolpi.ca/ergast/f1";
 const OPENF1_BASE = "https://api.openf1.org/v1";
 const LOCAL_BASE = "http://localhost:8000";
 
-async function ergastFetch<T>(path: string): Promise<T> {
+async function ergastFetch<T>(path: string, revalidate = 300): Promise<T> {
+  // next.revalidate only takes effect in Next.js Server Components / Route Handlers.
+  // In client-side code the standard fetch cache semantics apply.
   const res = await fetch(`${ERGAST_BASE}${path}`, {
-    next: { revalidate: 300 },
+    next: { revalidate },
   } as RequestInit);
   if (!res.ok) throw new Error(`Ergast API error ${res.status}: ${path}`);
   return res.json() as Promise<T>;

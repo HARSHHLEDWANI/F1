@@ -30,9 +30,59 @@ const F1Car3D = dynamic(() => import("@/components/3d/F1Car3D"), {
 });
 
 // ─────────────────────────────────────────────────────────────
-// Data
+// Types & Static Metadata
 // ─────────────────────────────────────────────────────────────
-const TEAMS_2024 = [
+
+export interface TeamData {
+  id: number;
+  name: string;
+  short: string;
+  color: string;
+  secondColor: string;
+  position: number;
+  points: number;
+  wins: number;
+  podiums: number;
+  poles: number;
+  fastestLaps: number;
+  drivers: string[];
+  engine: string;
+  chassis: string;
+  tires: string;
+  dnfRate: number;
+  avgFinish: number;
+  bestResult: string;
+}
+
+// Static team metadata that doesn't come from Ergast
+const TEAM_META: Record<string, {
+  short: string;
+  color: string;
+  secondColor: string;
+  tires: string;
+  engine: Record<number, string>;
+  chassis: Record<number, string>;
+}> = {
+  "McLaren":      { short: "MCL", color: "#FF8700", secondColor: "#000000", tires: "Pirelli", engine: { 2020: "Renault", 2021: "Mercedes", 2022: "Mercedes", 2023: "Mercedes", 2024: "Mercedes", 2025: "Mercedes", 2026: "Mercedes" }, chassis: { 2020: "MCL35", 2021: "MCL35M", 2022: "MCL36", 2023: "MCL60", 2024: "MCL38", 2025: "MCL39", 2026: "MCL40" } },
+  "Ferrari":      { short: "FER", color: "#DC0000", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Ferrari", 2021: "Ferrari", 2022: "Ferrari", 2023: "Ferrari", 2024: "Ferrari", 2025: "Ferrari", 2026: "Ferrari" }, chassis: { 2020: "SF1000", 2021: "SF21", 2022: "F1-75", 2023: "SF-23", 2024: "SF-24", 2025: "SF-25", 2026: "SF-26" } },
+  "Red Bull":     { short: "RBR", color: "#0600EF", secondColor: "#CC1E4A", tires: "Pirelli", engine: { 2020: "Honda", 2021: "Honda", 2022: "Honda RBPT", 2023: "Honda RBPT", 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Ford RBPT" }, chassis: { 2020: "RB16", 2021: "RB16B", 2022: "RB18", 2023: "RB19", 2024: "RB20", 2025: "RB21", 2026: "RB22" } },
+  "Mercedes":     { short: "MER", color: "#00D2BE", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Mercedes", 2021: "Mercedes", 2022: "Mercedes", 2023: "Mercedes", 2024: "Mercedes", 2025: "Mercedes", 2026: "Mercedes" }, chassis: { 2020: "W11", 2021: "W12", 2022: "W13", 2023: "W14", 2024: "W15", 2025: "W16", 2026: "W17" } },
+  "Aston Martin": { short: "AMR", color: "#006F62", secondColor: "#CEDC00", tires: "Pirelli", engine: { 2020: "Mercedes", 2021: "Mercedes", 2022: "Mercedes", 2023: "Mercedes", 2024: "Mercedes", 2025: "Mercedes", 2026: "Mercedes" }, chassis: { 2020: "RP20", 2021: "AMR21", 2022: "AMR22", 2023: "AMR23", 2024: "AMR24", 2025: "AMR25", 2026: "AMR26" } },
+  "Alpine":       { short: "ALP", color: "#0093CC", secondColor: "#FF0073", tires: "Pirelli", engine: { 2020: "Renault", 2021: "Renault", 2022: "Renault", 2023: "Renault", 2024: "Renault", 2025: "Renault", 2026: "Renault" }, chassis: { 2020: "RS20", 2021: "A521", 2022: "A522", 2023: "A523", 2024: "A524", 2025: "A525", 2026: "A526" } },
+  "Williams":     { short: "WIL", color: "#005AFF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Mercedes", 2021: "Mercedes", 2022: "Mercedes", 2023: "Mercedes", 2024: "Mercedes", 2025: "Mercedes", 2026: "Mercedes" }, chassis: { 2020: "FW43", 2021: "FW43B", 2022: "FW44", 2023: "FW45", 2024: "FW46", 2025: "FW47", 2026: "FW48" } },
+  "VCARB":        { short: "VCB", color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Honda", 2021: "Honda", 2022: "Honda RBPT", 2023: "Honda RBPT", 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2020: "AT01", 2021: "AT02", 2022: "AT03", 2023: "AT04", 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
+  "RB":           { short: "VCB", color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
+  "Haas":         { short: "HAA", color: "#B6BABD", secondColor: "#E8002D", tires: "Pirelli", engine: { 2020: "Ferrari", 2021: "Ferrari", 2022: "Ferrari", 2023: "Ferrari", 2024: "Ferrari", 2025: "Ferrari", 2026: "Ferrari" }, chassis: { 2020: "VF-20", 2021: "VF-21", 2022: "VF-22", 2023: "VF-23", 2024: "VF-24", 2025: "VF-25", 2026: "VF-26" } },
+  "Alfa Romeo":   { short: "ALF", color: "#900000", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Ferrari", 2021: "Ferrari", 2022: "Ferrari", 2023: "Ferrari" }, chassis: { 2020: "C39", 2021: "C41", 2022: "C42", 2023: "C43" } },
+  "Sauber":       { short: "SAU", color: "#00E48D", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Ferrari", 2025: "Ferrari", 2026: "Audi" }, chassis: { 2024: "C44", 2025: "C45", 2026: "C46" } },
+  "AlphaTauri":   { short: "APT", color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Honda", 2021: "Honda", 2022: "Honda RBPT", 2023: "Honda RBPT" }, chassis: { 2020: "AT01", 2021: "AT02", 2022: "AT03", 2023: "AT04" } },
+  "Toro Rosso":   { short: "STR", color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Honda" }, chassis: { 2020: "STR15" } },
+  "Racing Point": { short: "RPT", color: "#F596C8", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Mercedes" }, chassis: { 2020: "RP20" } },
+  "Renault":      { short: "REN", color: "#FFF500", secondColor: "#000000", tires: "Pirelli", engine: { 2020: "Renault", 2021: "Renault" }, chassis: { 2020: "RS20", 2021: "RS21" } },
+};
+
+// Fallback static data for when Ergast is unreachable
+const TEAMS_FALLBACK: TeamData[] = [
   { id: 1, name: "McLaren", short: "MCL", color: "#FF8700", secondColor: "#000000", position: 1, points: 666, wins: 6, podiums: 22, poles: 5, fastestLaps: 8, drivers: ["Lando Norris", "Oscar Piastri"], engine: "Mercedes", chassis: "MCL38", tires: "Pirelli", dnfRate: 4, avgFinish: 4.2, bestResult: "1st" },
   { id: 2, name: "Ferrari", short: "FER", color: "#DC0000", secondColor: "#FFFFFF", position: 2, points: 652, wins: 5, podiums: 18, poles: 12, fastestLaps: 6, drivers: ["Charles Leclerc", "Carlos Sainz"], engine: "Ferrari", chassis: "SF-24", tires: "Pirelli", dnfRate: 6, avgFinish: 4.8, bestResult: "1st" },
   { id: 3, name: "Red Bull", short: "RBR", color: "#0600EF", secondColor: "#CC1E4A", position: 3, points: 589, wins: 7, podiums: 15, poles: 6, fastestLaps: 4, drivers: ["Max Verstappen", "Sergio Perez"], engine: "Honda RBPT", chassis: "RB20", tires: "Pirelli", dnfRate: 5, avgFinish: 3.9, bestResult: "1st" },
@@ -44,6 +94,13 @@ const TEAMS_2024 = [
   { id: 9, name: "Williams", short: "WIL", color: "#005AFF", secondColor: "#FFFFFF", position: 9, points: 17, wins: 0, podiums: 0, poles: 0, fastestLaps: 0, drivers: ["Alex Albon", "Logan Sargeant"], engine: "Mercedes", chassis: "FW46", tires: "Pirelli", dnfRate: 6, avgFinish: 14.8, bestResult: "6th" },
   { id: 10, name: "Sauber", short: "SAU", color: "#00E48D", secondColor: "#FFFFFF", position: 10, points: 4, wins: 0, podiums: 0, poles: 0, fastestLaps: 0, drivers: ["Valtteri Bottas", "Guanyu Zhou"], engine: "Ferrari", chassis: "C44", tires: "Pirelli", dnfRate: 11, avgFinish: 16.2, bestResult: "9th" },
 ];
+
+// Ordinal helper: 1 → "1st", 2 → "2nd", etc.
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
 
 type ViewMode = "CARDS" | "STANDINGS" | "COMPARE";
 
@@ -170,7 +227,7 @@ function TeamCard({
   team,
   index,
 }: {
-  team: (typeof TEAMS_2024)[number];
+  team: TeamData;
   index: number;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -306,7 +363,7 @@ function TeamCard({
             }}
           >
             <h3 className="text-xl font-black italic uppercase text-white mb-3">
-              {team.name} — 2024
+              {team.name}
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
               {[
@@ -340,8 +397,8 @@ function TeamCard({
 // ─────────────────────────────────────────────────────────────
 // STANDINGS VIEW
 // ─────────────────────────────────────────────────────────────
-function StandingsView() {
-  const leader = TEAMS_2024[0].points;
+function StandingsView({ teams, season }: { teams: TeamData[]; season: number }) {
+  const leader = teams[0]?.points ?? 1;
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -362,7 +419,7 @@ function StandingsView() {
         <span className="text-right">PTS/RACE</span>
       </div>
 
-      {TEAMS_2024.map((team, i) => {
+      {teams.map((team, i) => {
         const gap = team.points - leader;
         const ptsPerRace = (team.points / 24).toFixed(1);
         return (
@@ -432,7 +489,7 @@ function StandingsView() {
 // ─────────────────────────────────────────────────────────────
 // COMPARE VIEW
 // ─────────────────────────────────────────────────────────────
-const COMPARE_STATS: { key: keyof (typeof TEAMS_2024)[0]; label: string; icon: React.ReactNode; higherIsBetter: boolean }[] = [
+const COMPARE_STATS: { key: keyof TeamData; label: string; icon: React.ReactNode; higherIsBetter: boolean }[] = [
   { key: "points", label: "Points", icon: <Star size={13} />, higherIsBetter: true },
   { key: "wins", label: "Race Wins", icon: <Trophy size={13} />, higherIsBetter: true },
   { key: "podiums", label: "Podiums", icon: <Award size={13} />, higherIsBetter: true },
@@ -442,13 +499,15 @@ const COMPARE_STATS: { key: keyof (typeof TEAMS_2024)[0]; label: string; icon: R
   { key: "avgFinish", label: "Avg Finish Pos", icon: <TrendingUp size={13} />, higherIsBetter: false },
 ];
 
-function CompareView() {
-  const [teamAId, setTeamAId] = useState(TEAMS_2024[0].id);
-  const [teamBId, setTeamBId] = useState(TEAMS_2024[1].id);
+function CompareView({ teams }: { teams: TeamData[] }) {
+  const [teamAId, setTeamAId] = useState(teams[0]?.id ?? 1);
+  const [teamBId, setTeamBId] = useState(teams[1]?.id ?? 2);
   const [animated, setAnimated] = useState(false);
 
-  const teamA = TEAMS_2024.find((t) => t.id === teamAId)!;
-  const teamB = TEAMS_2024.find((t) => t.id === teamBId)!;
+  const teamA = teams.find((t) => t.id === teamAId) ?? teams[0];
+  const teamB = teams.find((t) => t.id === teamBId) ?? teams[1];
+
+  if (!teamA || !teamB) return null;
 
   useEffect(() => {
     setAnimated(false);
@@ -496,7 +555,7 @@ function CompareView() {
                 value={team.id}
                 onChange={(e) => setId(Number(e.target.value))}
               >
-                {TEAMS_2024.filter((t) => t.id !== other).map((t) => (
+                {teams.filter((t) => t.id !== other).map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
@@ -626,12 +685,104 @@ function CompareView() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Build TeamData from Ergast constructor + driver standings
+// ─────────────────────────────────────────────────────────────
+function buildTeams(
+  constructors: import("@/lib/f1api").ErgastConstructorStanding[],
+  driverStandings: import("@/lib/f1api").ErgastDriverStanding[],
+  season: number
+): TeamData[] {
+  // Map constructor name → list of driver full names
+  const driversByTeam: Record<string, string[]> = {};
+  for (const d of driverStandings) {
+    const ctor = d.Constructors[0]?.name ?? "Unknown";
+    if (!driversByTeam[ctor]) driversByTeam[ctor] = [];
+    const fullName = `${d.Driver.givenName} ${d.Driver.familyName}`;
+    if (!driversByTeam[ctor].includes(fullName)) driversByTeam[ctor].push(fullName);
+  }
+
+  return constructors.map((c, idx) => {
+    const name = c.Constructor.name;
+    const meta = TEAM_META[name];
+    const yr = season as keyof (typeof TEAM_META)[string]["engine"];
+
+    // Closest year fallback for engine/chassis
+    const closestYear = (map: Record<number, string>): string => {
+      if (map[season]) return map[season];
+      const years = Object.keys(map).map(Number).sort((a, b) => Math.abs(a - season) - Math.abs(b - season));
+      return map[years[0]] ?? "—";
+    };
+
+    const points = Number(c.points);
+    const wins   = Number(c.wins);
+    const pos    = Number(c.position);
+
+    return {
+      id:          idx + 1,
+      name,
+      short:       meta?.short ?? name.slice(0, 3).toUpperCase(),
+      color:       meta?.color ?? "#888",
+      secondColor: meta?.secondColor ?? "#fff",
+      position:    pos,
+      points,
+      wins,
+      podiums:     0,  // not available from Ergast standings endpoint
+      poles:       0,
+      fastestLaps: 0,
+      drivers:     driversByTeam[name] ?? [],
+      engine:      meta ? closestYear(meta.engine) : "—",
+      chassis:     meta ? closestYear(meta.chassis) : "—",
+      tires:       meta?.tires ?? "Pirelli",
+      dnfRate:     0,
+      avgFinish:   0,
+      bestResult:  wins > 0 ? "1st" : pos <= 3 ? ordinal(pos) : ordinal(pos),
+    } satisfies TeamData;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────
 export default function TeamsPage() {
   const [view, setView] = useState<ViewMode>("CARDS");
-  const [season, setSeason] = useState(2024);
+  const [season, setSeason] = useState(2025);
   const seasons = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+
+  const [teams, setTeams] = useState<TeamData[]>(TEAMS_FALLBACK);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState(false);
+
+  // Fetch constructor + driver standings whenever season changes
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setApiError(false);
+
+    Promise.all([
+      import("@/lib/f1api").then((m) => m.fetchConstructorStandings(season)),
+      import("@/lib/f1api").then((m) => m.fetchDriverStandings(season)),
+    ])
+      .then(([constructors, drivers]) => {
+        if (cancelled) return;
+        if (constructors.length === 0) {
+          setApiError(true);
+          setTeams(TEAMS_FALLBACK);
+        } else {
+          setTeams(buildTeams(constructors, drivers, season));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setApiError(true);
+          setTeams(TEAMS_FALLBACK);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [season]);
 
   const views: { mode: ViewMode; icon: React.ReactNode; label: string }[] = [
     { mode: "CARDS", icon: <LayoutGrid size={14} />, label: "CARDS" },
@@ -662,7 +813,8 @@ export default function TeamsPage() {
               </div>
               <div>
                 <p className="text-[10px] font-bold tracking-[0.4em] text-white/30 uppercase mb-1">
-                  Formula 1 · 2024
+                  Formula 1 · {season}
+                  {apiError && <span className="ml-2 text-yellow-500/60">(fallback data)</span>}
                 </p>
                 <h1 className="text-5xl md:text-6xl font-black italic tracking-tighter text-white leading-none">
                   CONSTRUCTORS
@@ -719,7 +871,27 @@ export default function TeamsPage() {
           </div>
         </header>
 
+        {/* ── LOADING SKELETON ── */}
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-2xl border border-white/5 bg-white/3 overflow-hidden">
+                <div className="h-2 w-full bg-white/10" />
+                <div className="h-44 bg-white/5" />
+                <div className="p-5 space-y-3">
+                  <div className="h-6 w-1/2 bg-white/10 rounded" />
+                  <div className="h-10 w-1/3 bg-white/10 rounded" />
+                  <div className="flex gap-2">
+                    {[1,2,3,4].map((j) => <div key={j} className="h-8 flex-1 bg-white/5 rounded" />)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── VIEW CONTENT ── */}
+        {!loading && (
         <AnimatePresence mode="wait">
           {view === "CARDS" && (
             <motion.div
@@ -730,7 +902,7 @@ export default function TeamsPage() {
               transition={{ duration: 0.25 }}
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
             >
-              {TEAMS_2024.map((team, i) => (
+              {teams.map((team, i) => (
                 <TeamCard key={team.id} team={team} index={i} />
               ))}
             </motion.div>
@@ -744,7 +916,7 @@ export default function TeamsPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              <StandingsView />
+              <StandingsView teams={teams} season={season} />
             </motion.div>
           )}
 
@@ -756,14 +928,15 @@ export default function TeamsPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              <CompareView />
+              <CompareView teams={teams} />
             </motion.div>
           )}
         </AnimatePresence>
+        )}
 
         {/* Footer note */}
         <p className="text-center text-white/15 text-xs tracking-widest mt-12 uppercase">
-          2024 Constructor Championship · Data as of season end
+          {season} Constructor Championship · Via Jolpica/Ergast API
         </p>
       </div>
     </div>

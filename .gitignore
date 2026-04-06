@@ -43,3 +43,5 @@ backend/venv
 *.ff1pkl
 
 ml-service/venv
+
+.claude/
