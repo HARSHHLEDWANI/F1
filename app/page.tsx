@@ -151,8 +151,16 @@ function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
 
 // ── Real race countdown using the hook ────────────────────────────────────────
 function RaceCountdownDisplay() {
-  const { daysUntil, hoursUntil, minutesUntil, secondsUntil } = useRaceCountdown();
+  const { daysUntil, hoursUntil, minutesUntil, secondsUntil, isOffSeason } = useRaceCountdown();
   const pad = (n: number) => String(Math.max(0, n)).padStart(2, "0");
+
+  if (isOffSeason) {
+    return (
+      <span className="text-xs font-bold tracking-widest uppercase text-neutral-500">
+        Off-season — next calendar TBA
+      </span>
+    );
+  }
 
   const segments = [
     { label: "DAYS", val: daysUntil },
@@ -216,7 +224,7 @@ export default function Home() {
   // Hooks
   const { isLive, isSimulation, lap, totalLaps } = useLiveRace();
   const { nextRace, daysUntil, hoursUntil, minutesUntil, secondsUntil } = useRaceCountdown();
-  const { driverStandings, loading: standingsLoading } = useF1Season(2024);
+  const { driverStandings, loading: standingsLoading, error: standingsError, year: standingsYear } = useF1Season(2025);
 
   // Top 5 standings for display
   const top5 = driverStandings.slice(0, 5);
@@ -423,7 +431,7 @@ export default function Home() {
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <div className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1">2024 Season</div>
+                  <div className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1">{standingsYear} Season</div>
                   <h2 className="text-2xl font-black">Driver Standings</h2>
                 </div>
                 <Link
@@ -434,8 +442,22 @@ export default function Home() {
                 </Link>
               </div>
 
+              {/* Visible note when live data couldn't be fetched */}
+              {!standingsLoading && standingsError && (
+                <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/25">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 flex-shrink-0" />
+                  <span className="text-[10px] text-yellow-500/80 font-bold tracking-wide uppercase">
+                    Live standings unavailable — showing last-known {standingsYear} data
+                  </span>
+                </div>
+              )}
+
               {standingsLoading ? (
                 <StandingsSkeleton />
+              ) : top5.length === 0 ? (
+                <div className="py-10 text-center text-neutral-600 text-xs font-bold tracking-widest uppercase">
+                  No standings data available
+                </div>
               ) : (
                 <div className="space-y-3">
                   {top5.map((d, i) => {
@@ -525,8 +547,8 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <h3 className="text-3xl font-black italic mb-1">Season Complete</h3>
-                    <p className="text-neutral-500 text-sm mb-6">2025 season has concluded</p>
+                    <h3 className="text-3xl font-black italic mb-1">Off-Season</h3>
+                    <p className="text-neutral-500 text-sm mb-6">Next season&apos;s calendar coming soon</p>
                   </>
                 )}
 

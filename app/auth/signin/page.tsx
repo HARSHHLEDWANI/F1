@@ -260,6 +260,7 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [resetNote, setResetNote] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -926,14 +927,19 @@ export default function SignInPage() {
                         REMEMBER ME
                       </span>
                     </label>
-                    <a
-                      href="#"
+                    <button
+                      type="button"
+                      onClick={() => setResetNote((v) => !v)}
                       style={{
                         fontSize: 10,
                         color: "rgba(0,210,255,0.5)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
                         textDecoration: "none",
                         letterSpacing: "0.1em",
                         transition: "color 0.2s",
+                        padding: 0,
                       }}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.color = "#00D2FF")
@@ -943,7 +949,23 @@ export default function SignInPage() {
                       }
                     >
                       FORGOT PASSWORD?
-                    </a>
+                    </button>
+                  </div>
+                )}
+
+                {/* Honest gate: there is no reset flow yet, so don't pretend. */}
+                {mode === "login" && resetNote && (
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "rgba(232,232,240,0.5)",
+                      letterSpacing: "0.08em",
+                      marginBottom: 16,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Password recovery isn&apos;t available yet — contact support
+                    at ledwani830@gmail.com to reset your account.
                   </div>
                 )}
 

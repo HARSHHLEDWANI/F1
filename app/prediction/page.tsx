@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/navbar";
 import { apiFetch } from "@/lib/api";
+import { SELECTABLE_SEASONS } from "@/lib/season2025";
 
 // ─── Static Fallback Data (shown only when backend is unreachable) ───────────
 // These are intentionally generic — the backend provides real predictions.
@@ -354,6 +355,7 @@ export default function PredictionPage() {
   // Dynamic race list fetched from backend
   const [races, setRaces] = useState<RaceInfo[]>([]);
   const [racesLoading, setRacesLoading] = useState(false);
+  const [racesError, setRacesError] = useState(false);
 
   const [podiumData, setPodiumData] = useState<PodiumDriver[] | null>(null);
   const [winProbData, setWinProbData] = useState<WinProbDriver[] | null>(null);
@@ -391,24 +393,52 @@ export default function PredictionPage() {
     return () => { cancelled = true; };
   }, [season]);
 
-  // Fetch race list whenever season changes
+  // Fetch race list whenever season changes. Primary source is the ML backend;
+  // if it's unreachable we fall back to the Jolpica calendar so the selector is
+  // never empty.
   useEffect(() => {
     let cancelled = false;
     setRacesLoading(true);
     setRaces([]);
     setSelectedRound(null);
+    setRacesError(false);
 
-    fetch(`${API_BASE}/races?year=${season}`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
-      .then((data: RaceInfo[]) => {
+    const loadFromJolpica = async (): Promise<RaceInfo[]> => {
+      const m = await import("@/lib/f1api");
+      const ergastRaces = await m.fetchSeasonRaces(season);
+      return ergastRaces.map((r) => ({
+        id: Number(r.round),
+        season,
+        round: Number(r.round),
+        race_name: r.raceName,
+        date: r.date ?? null,
+        circuit_name: r.Circuit?.circuitName ?? null,
+        country: r.Circuit?.Location?.country ?? null,
+      }));
+    };
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/races?year=${season}`);
+        if (!res.ok) throw new Error(String(res.status));
+        const data: RaceInfo[] = await res.json();
+        if (!Array.isArray(data) || data.length === 0) throw new Error("empty");
         if (!cancelled) setRaces(data);
-      })
-      .catch(() => {
-        // Silent fallback — races will just be empty; user sees loading skeleton
-      })
-      .finally(() => {
+      } catch {
+        // Backend unavailable → fall back to the public calendar API.
+        try {
+          const fallback = await loadFromJolpica();
+          if (!cancelled) {
+            setRaces(fallback);
+            setRacesError(fallback.length === 0);
+          }
+        } catch {
+          if (!cancelled) setRacesError(true);
+        }
+      } finally {
         if (!cancelled) setRacesLoading(false);
-      });
+      }
+    })();
 
     return () => { cancelled = true; };
   }, [season]);
@@ -606,7 +636,7 @@ export default function PredictionPage() {
             {/* Season picker */}
             <div className="flex items-center gap-3 mb-6">
               <span className="text-xs text-gray-500 uppercase tracking-widest font-medium">Season</span>
-              {([2021, 2022, 2023, 2024] as const).map((yr) => (
+              {SELECTABLE_SEASONS.map((yr) => (
                 <button
                   key={yr}
                   onClick={() => { setSeason(yr); setSelectedRound(null); }}
@@ -637,6 +667,19 @@ export default function PredictionPage() {
               className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
+              {!racesLoading && races.length === 0 && (
+                <div className="w-full py-10 text-center">
+                  <p className="text-3xl mb-2">📅</p>
+                  <p className="text-sm font-black text-white tracking-widest uppercase">
+                    No calendar for {season}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {racesError
+                      ? "Race data is unavailable right now. Try another season."
+                      : "Select a season with available race data."}
+                  </p>
+                </div>
+              )}
               {racesLoading
                 ? Array.from({ length: 8 }).map((_, i) => (
                     <div
@@ -687,6 +730,24 @@ export default function PredictionPage() {
                   })}
             </div>
           </section>
+
+          {/* ── Empty state before a race is picked ── */}
+          {selectedRound === null && !racesLoading && races.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card rounded-2xl p-10 text-center"
+            >
+              <p className="text-4xl mb-3">🏁</p>
+              <h3 className="text-sm font-black tracking-[0.2em] text-white uppercase">
+                Pick a race to generate predictions
+              </h3>
+              <p className="text-xs text-gray-500 mt-2 max-w-md mx-auto">
+                Choose a round from the calendar above to see the AI podium,
+                win probabilities and overtake likelihood.
+              </p>
+            </motion.div>
+          )}
 
           {/* ── SECTION 2: AI PREDICTION PANEL ── */}
           <AnimatePresence>

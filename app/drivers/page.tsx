@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchDriverStandings, ErgastDriverStanding, TEAM_COLORS } from "@/lib/f1api";
+import { DRIVERS_2025 as CANON_2025, SELECTABLE_SEASONS } from "@/lib/season2025";
 
 // ─── Dynamic 3D Helmet ───────────────────────────────────────────────────────
 const Helmet3D = dynamic(() => import("@/components/3d/Helmet3D"), {
@@ -62,40 +63,36 @@ const DRIVERS_2024: DriverData[] = [
 ];
 
 // ─── 2025 Grid ───────────────────────────────────────────────────────────────
-// Key changes from 2024:
-//  • Hamilton: Mercedes → Ferrari  • Sainz: Ferrari → Williams
-//  • Lawson: VCARB → Red Bull (replaced Perez)
-//  • New: Antonelli (Mercedes), Doohan (Alpine), Bortoleto (Sauber), Hadjar (VCARB)
-//  • Out: Perez, Ocon, Magnussen, Sargeant, Zhou
-const DRIVERS_2025: DriverData[] = [
-  { id: 1,  code: "LEC", given_name: "Charles",  family_name: "Leclerc",    nationality: "🇲🇨", number: 16, team: "Ferrari",      teamColor: "#DC0000", championships: 1, wins: 16,  podiums: 56,  poles: 28,  points_total: 1520, rating: 94, highlight: "2025 World Champion 🏆" },
-  { id: 2,  code: "NOR", given_name: "Lando",    family_name: "Norris",     nationality: "🇬🇧", number: 4,  team: "McLaren",      teamColor: "#FF8700", championships: 0, wins: 8,   podiums: 42,  poles: 8,   points_total: 620,  rating: 91, highlight: "McLaren's Race Winner" },
-  { id: 3,  code: "PIA", given_name: "Oscar",    family_name: "Piastri",    nationality: "🇦🇺", number: 81, team: "McLaren",      teamColor: "#FF8700", championships: 0, wins: 6,   podiums: 22,  poles: 4,   points_total: 480,  rating: 88, highlight: "McLaren's Rising Star" },
-  { id: 4,  code: "VER", given_name: "Max",      family_name: "Verstappen", nationality: "🇳🇱", number: 1,  team: "Red Bull",     teamColor: "#0600EF", championships: 4, wins: 63,  podiums: 112, poles: 41,  points_total: 3260, rating: 96, highlight: "4× World Champion" },
-  { id: 5,  code: "RUS", given_name: "George",   family_name: "Russell",    nationality: "🇬🇧", number: 63, team: "Mercedes",     teamColor: "#00D2BE", championships: 0, wins: 4,   podiums: 22,  poles: 6,   points_total: 620,  rating: 86, highlight: "Mercedes Team Leader" },
-  { id: 6,  code: "HAM", given_name: "Lewis",    family_name: "Hamilton",   nationality: "🇬🇧", number: 44, team: "Ferrari",      teamColor: "#DC0000", championships: 7, wins: 104, podiums: 199, poles: 104, points_total: 4715, rating: 95, highlight: "7× World Champion at Ferrari" },
-  { id: 7,  code: "ANT", given_name: "Kimi",     family_name: "Antonelli",  nationality: "🇮🇹", number: 12, team: "Mercedes",     teamColor: "#00D2BE", championships: 0, wins: 0,   podiums: 2,   poles: 1,   points_total: 0,    rating: 81, highlight: "Mercedes' Future Star" },
-  { id: 8,  code: "SAI", given_name: "Carlos",   family_name: "Sainz",      nationality: "🇪🇸", number: 55, team: "Williams",     teamColor: "#005AFF", championships: 0, wins: 4,   podiums: 25,  poles: 6,   points_total: 1082, rating: 85, highlight: "Williams' Championship Contender" },
-  { id: 9,  code: "ALO", given_name: "Fernando", family_name: "Alonso",     nationality: "🇪🇸", number: 14, team: "Aston Martin", teamColor: "#006F62", championships: 2, wins: 32,  podiums: 106, poles: 22,  points_total: 2315, rating: 87, highlight: "2× WDC – The Comeback King" },
-  { id: 10, code: "STR", given_name: "Lance",    family_name: "Stroll",     nationality: "🇨🇦", number: 18, team: "Aston Martin", teamColor: "#006F62", championships: 0, wins: 0,   podiums: 3,   poles: 1,   points_total: 260,  rating: 72, highlight: "Son of Team Owner" },
-  { id: 11, code: "GAS", given_name: "Pierre",   family_name: "Gasly",      nationality: "🇫🇷", number: 10, team: "Alpine",       teamColor: "#0093CC", championships: 0, wins: 1,   podiums: 4,   poles: 0,   points_total: 325,  rating: 78, highlight: "Italian GP 2020 Winner" },
-  { id: 12, code: "DOO", given_name: "Jack",     family_name: "Doohan",     nationality: "🇦🇺", number: 7,  team: "Alpine",       teamColor: "#0093CC", championships: 0, wins: 0,   podiums: 0,   poles: 0,   points_total: 0,    rating: 74, highlight: "Alpine's New Recruit" },
-  { id: 13, code: "HUL", given_name: "Nico",     family_name: "Hulkenberg", nationality: "🇩🇪", number: 27, team: "Haas",         teamColor: "#B6BABD", championships: 0, wins: 0,   podiums: 0,   poles: 1,   points_total: 530,  rating: 79, highlight: "0 Podiums – Most Starts Without" },
-  { id: 14, code: "BEA", given_name: "Oliver",   family_name: "Bearman",    nationality: "🇬🇧", number: 87, team: "Haas",         teamColor: "#B6BABD", championships: 0, wins: 0,   podiums: 0,   poles: 0,   points_total: 7,    rating: 77, highlight: "Haas Full-Time Rookie" },
-  { id: 15, code: "ALB", given_name: "Alex",     family_name: "Albon",      nationality: "🇹🇭", number: 23, team: "Williams",     teamColor: "#005AFF", championships: 0, wins: 0,   podiums: 2,   poles: 0,   points_total: 265,  rating: 79, highlight: "Williams' Consistent Scorer" },
-  { id: 16, code: "TSU", given_name: "Yuki",     family_name: "Tsunoda",    nationality: "🇯🇵", number: 22, team: "VCARB",        teamColor: "#1E41FF", championships: 0, wins: 0,   podiums: 0,   poles: 0,   points_total: 95,   rating: 76, highlight: "Japan's F1 Star" },
-  { id: 17, code: "HAD", given_name: "Isack",    family_name: "Hadjar",     nationality: "🇫🇷", number: 6,  team: "VCARB",        teamColor: "#1E41FF", championships: 0, wins: 0,   podiums: 0,   poles: 0,   points_total: 0,    rating: 75, highlight: "F2 2024 Runner-Up" },
-  { id: 18, code: "LAW", given_name: "Liam",     family_name: "Lawson",     nationality: "🇳🇿", number: 30, team: "Red Bull",     teamColor: "#0600EF", championships: 0, wins: 0,   podiums: 2,   poles: 0,   points_total: 28,   rating: 78, highlight: "Red Bull's New #2" },
-  { id: 19, code: "BOT", given_name: "Valtteri", family_name: "Bottas",     nationality: "🇫🇮", number: 77, team: "Sauber",       teamColor: "#00E48D", championships: 0, wins: 10,  podiums: 67,  poles: 20,  points_total: 1840, rating: 78, highlight: "Former Mercedes #2" },
-  { id: 20, code: "BOR", given_name: "Gabriel",  family_name: "Bortoleto",  nationality: "🇧🇷", number: 5,  team: "Sauber",       teamColor: "#00E48D", championships: 0, wins: 0,   podiums: 0,   poles: 0,   points_total: 0,    rating: 76, highlight: "F2 Champion 2024" },
-];
+// Derived from the canonical single source of truth in lib/season2025.ts so
+// that /drivers and /teams never disagree. `points_total` is the CAREER total;
+// `season_points`/`season_position` are the 2025 championship fallback and are
+// overridden by live Jolpica data when available.
+const DRIVERS_2025: DriverData[] = CANON_2025.map((d) => ({
+  id: d.id,
+  code: d.code,
+  given_name: d.given_name,
+  family_name: d.family_name,
+  nationality: d.nationality,
+  number: d.number,
+  team: d.team,
+  teamColor: d.teamColor,
+  championships: d.career.championships,
+  wins: d.career.wins,
+  podiums: d.career.podiums,
+  poles: d.career.poles,
+  points_total: d.career.points,
+  rating: d.rating,
+  highlight: d.highlight,
+  season_points: d.season.points,
+  season_position: d.season.position,
+}));
 
 function getBaseDrivers(season: number): DriverData[] {
   if (season >= 2025) return DRIVERS_2025;
   return DRIVERS_2024;
 }
 
-const SEASONS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+const SEASONS = SELECTABLE_SEASONS;
 
 type SortKey = "points" | "wins" | "podiums" | "rating" | "number";
 type ViewMode = "grid" | "list";
@@ -117,11 +114,12 @@ function mergeWithErgast(base: DriverData[], standings: ErgastDriverStanding[]):
     );
     if (!match) return d;
     const teamName = match.Constructors[0]?.name ?? d.team;
+    // Only the season fields come from the API; career stats (wins/podiums/
+    // poles/points_total) stay as the verified historical totals.
     return {
       ...d,
       season_points: Number(match.points),
       season_position: Number(match.position),
-      wins: Number(match.wins) || d.wins,
       team: teamName,
       teamColor: resolveTeamColor(teamName, d.teamColor),
     };
@@ -271,13 +269,17 @@ function DriverCard({ driver, index, onClick }: DriverCardProps) {
           <ChampionshipStars count={driver.championships} />
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — WIN/POD/POLE are career totals; '25 PTS is the season */}
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-[8px] font-black tracking-widest text-neutral-600 uppercase">Career</span>
+          <span className="text-[8px] font-black tracking-widest text-neutral-600 uppercase">Season</span>
+        </div>
         <div className="grid grid-cols-4 gap-1.5">
           {[
             { label: "WIN", value: driver.wins },
             { label: "POD", value: driver.podiums },
             { label: "POLE", value: driver.poles },
-            { label: "PTS", value: driver.season_points ?? driver.points_total },
+            { label: "'25 PTS", value: driver.season_points ?? driver.points_total },
           ].map(({ label, value }) => (
             <div
               key={label}
@@ -552,7 +554,7 @@ export default function DriversPage() {
                 </h1>
                 <p className="text-neutral-500 text-sm mt-3 max-w-md">
                   Technical profiles of the world&apos;s fastest athletes.
-                  Live data from Ergast API where available.
+                  Season points live from the Jolpica API where available.
                 </p>
               </motion.div>
             </div>
@@ -627,7 +629,7 @@ export default function DriversPage() {
         {/* ── PODIUM ──────────────────────────────────────────────────── */}
         <section>
           <p className="text-[10px] font-black tracking-[0.3em] text-neutral-600 uppercase mb-6">
-            Championship Standings — Top 3
+            {season} Season Standings — Top 3 (championship points)
           </p>
           <div className="flex items-end justify-center gap-2 sm:gap-6">
             {top3.map((driver, i) =>
@@ -768,7 +770,7 @@ export default function DriversPage() {
         {/* ── FOOTER NOTE ─────────────────────────────────────────────── */}
         <footer className="text-center pt-8 border-t border-white/[0.04]">
           <p className="text-[10px] font-bold tracking-widest text-neutral-700 uppercase">
-            Career stats from hardcoded 2024 data · Season points live from Ergast API
+            Career totals are static historical data · Season points live from the Jolpica API
           </p>
         </footer>
       </div>

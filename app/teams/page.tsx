@@ -16,6 +16,7 @@ import {
   Timer,
   TrendingUp,
 } from "lucide-react";
+import { TEAMS_2025, driverByCode, SELECTABLE_SEASONS } from "@/lib/season2025";
 
 // ─────────────────────────────────────────────────────────────
 // Dynamic F1Car3D import
@@ -71,7 +72,9 @@ const TEAM_META: Record<string, {
   "Alpine":       { short: "ALP", color: "#0093CC", secondColor: "#FF0073", tires: "Pirelli", engine: { 2020: "Renault", 2021: "Renault", 2022: "Renault", 2023: "Renault", 2024: "Renault", 2025: "Renault", 2026: "Renault" }, chassis: { 2020: "RS20", 2021: "A521", 2022: "A522", 2023: "A523", 2024: "A524", 2025: "A525", 2026: "A526" } },
   "Williams":     { short: "WIL", color: "#005AFF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Mercedes", 2021: "Mercedes", 2022: "Mercedes", 2023: "Mercedes", 2024: "Mercedes", 2025: "Mercedes", 2026: "Mercedes" }, chassis: { 2020: "FW43", 2021: "FW43B", 2022: "FW44", 2023: "FW45", 2024: "FW46", 2025: "FW47", 2026: "FW48" } },
   "VCARB":        { short: "VCB", color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Honda", 2021: "Honda", 2022: "Honda RBPT", 2023: "Honda RBPT", 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2020: "AT01", 2021: "AT02", 2022: "AT03", 2023: "AT04", 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
-  "RB":           { short: "VCB", color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
+  "RB":           { short: "RB",  color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
+  "RB F1 Team":   { short: "RB",  color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
+  "Racing Bulls": { short: "RB",  color: "#1E41FF", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Honda RBPT", 2025: "Honda RBPT", 2026: "Honda RBPT" }, chassis: { 2024: "VCARB 01", 2025: "VCARB 02", 2026: "VCARB 03" } },
   "Haas":         { short: "HAA", color: "#B6BABD", secondColor: "#E8002D", tires: "Pirelli", engine: { 2020: "Ferrari", 2021: "Ferrari", 2022: "Ferrari", 2023: "Ferrari", 2024: "Ferrari", 2025: "Ferrari", 2026: "Ferrari" }, chassis: { 2020: "VF-20", 2021: "VF-21", 2022: "VF-22", 2023: "VF-23", 2024: "VF-24", 2025: "VF-25", 2026: "VF-26" } },
   "Alfa Romeo":   { short: "ALF", color: "#900000", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2020: "Ferrari", 2021: "Ferrari", 2022: "Ferrari", 2023: "Ferrari" }, chassis: { 2020: "C39", 2021: "C41", 2022: "C42", 2023: "C43" } },
   "Sauber":       { short: "SAU", color: "#00E48D", secondColor: "#FFFFFF", tires: "Pirelli", engine: { 2024: "Ferrari", 2025: "Ferrari", 2026: "Audi" }, chassis: { 2024: "C44", 2025: "C45", 2026: "C46" } },
@@ -81,19 +84,33 @@ const TEAM_META: Record<string, {
   "Renault":      { short: "REN", color: "#FFF500", secondColor: "#000000", tires: "Pirelli", engine: { 2020: "Renault", 2021: "Renault" }, chassis: { 2020: "RS20", 2021: "RS21" } },
 };
 
-// Fallback static data for when Ergast is unreachable
-const TEAMS_FALLBACK: TeamData[] = [
-  { id: 1, name: "McLaren", short: "MCL", color: "#FF8700", secondColor: "#000000", position: 1, points: 666, wins: 6, podiums: 22, poles: 5, fastestLaps: 8, drivers: ["Lando Norris", "Oscar Piastri"], engine: "Mercedes", chassis: "MCL38", tires: "Pirelli", dnfRate: 4, avgFinish: 4.2, bestResult: "1st" },
-  { id: 2, name: "Ferrari", short: "FER", color: "#DC0000", secondColor: "#FFFFFF", position: 2, points: 652, wins: 5, podiums: 18, poles: 12, fastestLaps: 6, drivers: ["Charles Leclerc", "Carlos Sainz"], engine: "Ferrari", chassis: "SF-24", tires: "Pirelli", dnfRate: 6, avgFinish: 4.8, bestResult: "1st" },
-  { id: 3, name: "Red Bull", short: "RBR", color: "#0600EF", secondColor: "#CC1E4A", position: 3, points: 589, wins: 7, podiums: 15, poles: 6, fastestLaps: 4, drivers: ["Max Verstappen", "Sergio Perez"], engine: "Honda RBPT", chassis: "RB20", tires: "Pirelli", dnfRate: 5, avgFinish: 3.9, bestResult: "1st" },
-  { id: 4, name: "Mercedes", short: "MER", color: "#00D2BE", secondColor: "#FFFFFF", position: 4, points: 468, wins: 4, podiums: 12, poles: 3, fastestLaps: 5, drivers: ["George Russell", "Lewis Hamilton"], engine: "Mercedes", chassis: "W15", tires: "Pirelli", dnfRate: 3, avgFinish: 5.1, bestResult: "1st" },
-  { id: 5, name: "Aston Martin", short: "AMR", color: "#006F62", secondColor: "#CEDC00", position: 5, points: 94, wins: 0, podiums: 2, poles: 0, fastestLaps: 0, drivers: ["Fernando Alonso", "Lance Stroll"], engine: "Mercedes", chassis: "AMR24", tires: "Pirelli", dnfRate: 7, avgFinish: 9.2, bestResult: "2nd" },
-  { id: 6, name: "Alpine", short: "ALP", color: "#0093CC", secondColor: "#FF0073", position: 6, points: 65, wins: 0, podiums: 0, poles: 0, fastestLaps: 1, drivers: ["Esteban Ocon", "Pierre Gasly"], engine: "Renault", chassis: "A524", tires: "Pirelli", dnfRate: 9, avgFinish: 11.3, bestResult: "5th" },
-  { id: 7, name: "Haas", short: "HAA", color: "#B6BABD", secondColor: "#E8002D", position: 7, points: 58, wins: 0, podiums: 0, poles: 1, fastestLaps: 0, drivers: ["Nico Hulkenberg", "Kevin Magnussen"], engine: "Ferrari", chassis: "VF-24", tires: "Pirelli", dnfRate: 8, avgFinish: 12.1, bestResult: "5th" },
-  { id: 8, name: "VCARB", short: "VCB", color: "#1E41FF", secondColor: "#FFFFFF", position: 8, points: 46, wins: 0, podiums: 0, poles: 0, fastestLaps: 0, drivers: ["Yuki Tsunoda", "Liam Lawson"], engine: "Honda RBPT", chassis: "VCARB 01", tires: "Pirelli", dnfRate: 10, avgFinish: 13.4, bestResult: "7th" },
-  { id: 9, name: "Williams", short: "WIL", color: "#005AFF", secondColor: "#FFFFFF", position: 9, points: 17, wins: 0, podiums: 0, poles: 0, fastestLaps: 0, drivers: ["Alex Albon", "Logan Sargeant"], engine: "Mercedes", chassis: "FW46", tires: "Pirelli", dnfRate: 6, avgFinish: 14.8, bestResult: "6th" },
-  { id: 10, name: "Sauber", short: "SAU", color: "#00E48D", secondColor: "#FFFFFF", position: 10, points: 4, wins: 0, podiums: 0, poles: 0, fastestLaps: 0, drivers: ["Valtteri Bottas", "Guanyu Zhou"], engine: "Ferrari", chassis: "C44", tires: "Pirelli", dnfRate: 11, avgFinish: 16.2, bestResult: "9th" },
-];
+// Fallback static data for when the API is unreachable — derived from the
+// canonical 2025 source of truth so /teams and /drivers never disagree.
+const TEAMS_FALLBACK: TeamData[] = [...TEAMS_2025]
+  .sort((a, b) => a.season.position - b.season.position)
+  .map((t) => ({
+    id: t.id,
+    name: t.name,
+    short: t.short,
+    color: t.color,
+    secondColor: t.secondColor,
+    position: t.season.position,
+    points: t.season.points,
+    wins: t.season.wins,
+    podiums: 0,
+    poles: 0,
+    fastestLaps: 0,
+    drivers: t.drivers.map((code) => {
+      const d = driverByCode(code);
+      return d ? `${d.given_name} ${d.family_name}` : code;
+    }),
+    engine: t.engine,
+    chassis: t.chassis,
+    tires: "Pirelli",
+    dnfRate: 0,
+    avgFinish: 0,
+    bestResult: t.season.wins > 0 ? "1st" : ordinal(t.season.position),
+  }));
 
 // Ordinal helper: 1 → "1st", 2 → "2nd", etc.
 function ordinal(n: number): string {
@@ -746,7 +763,7 @@ function buildTeams(
 export default function TeamsPage() {
   const [view, setView] = useState<ViewMode>("CARDS");
   const [season, setSeason] = useState(2025);
-  const seasons = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+  const seasons = SELECTABLE_SEASONS;
 
   const [teams, setTeams] = useState<TeamData[]>(TEAMS_FALLBACK);
   const [loading, setLoading] = useState(false);

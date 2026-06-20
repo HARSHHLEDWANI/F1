@@ -9,32 +9,43 @@ import {
   type ErgastConstructorStanding,
   type ErgastRace,
 } from "@/lib/f1api";
+import { DRIVERS_2025 as CANON_DRIVERS, TEAMS_2025 as CANON_TEAMS } from "@/lib/season2025";
 
 // ---------------------------------------------------------------------------
-// Mock fallback data (2024)
+// Mock fallback data — derived from the canonical 2025 source of truth so the
+// fallback is consistent with /drivers and /teams (Norris is champion).
+// Only used when the Jolpica API is unreachable.
 // ---------------------------------------------------------------------------
 
-// 2025 final standings (used when Ergast is unreachable)
-const MOCK_DRIVER_STANDINGS: ErgastDriverStanding[] = [
-  { position: "1", positionText: "1", points: "429", wins: "8",  Driver: { driverId: "oscar_piastri",     code: "PIA", url: "", givenName: "Oscar",    familyName: "Piastri",    dateOfBirth: "2001-04-06", nationality: "Australian",  permanentNumber: "81" }, Constructors: [{ constructorId: "mclaren",      url: "", name: "McLaren",      nationality: "British"   }] },
-  { position: "2", positionText: "2", points: "418", wins: "7",  Driver: { driverId: "lando_norris",      code: "NOR", url: "", givenName: "Lando",    familyName: "Norris",     dateOfBirth: "1999-11-13", nationality: "British",     permanentNumber: "4"  }, Constructors: [{ constructorId: "mclaren",      url: "", name: "McLaren",      nationality: "British"   }] },
-  { position: "3", positionText: "3", points: "356", wins: "4",  Driver: { driverId: "charles_leclerc",   code: "LEC", url: "", givenName: "Charles",  familyName: "Leclerc",    dateOfBirth: "1997-10-16", nationality: "Monegasque",  permanentNumber: "16" }, Constructors: [{ constructorId: "ferrari",       url: "", name: "Ferrari",       nationality: "Italian"   }] },
-  { position: "4", positionText: "4", points: "321", wins: "3",  Driver: { driverId: "max_verstappen",    code: "VER", url: "", givenName: "Max",      familyName: "Verstappen", dateOfBirth: "1997-09-30", nationality: "Dutch",       permanentNumber: "1"  }, Constructors: [{ constructorId: "red_bull",      url: "", name: "Red Bull",      nationality: "Austrian"  }] },
-  { position: "5", positionText: "5", points: "294", wins: "2",  Driver: { driverId: "george_russell",    code: "RUS", url: "", givenName: "George",   familyName: "Russell",    dateOfBirth: "1998-02-15", nationality: "British",     permanentNumber: "63" }, Constructors: [{ constructorId: "mercedes",      url: "", name: "Mercedes",      nationality: "German"    }] },
-  { position: "6", positionText: "6", points: "244", wins: "2",  Driver: { driverId: "lewis_hamilton",    code: "HAM", url: "", givenName: "Lewis",    familyName: "Hamilton",   dateOfBirth: "1985-01-07", nationality: "British",     permanentNumber: "44" }, Constructors: [{ constructorId: "ferrari",       url: "", name: "Ferrari",       nationality: "Italian"   }] },
-  { position: "7", positionText: "7", points: "152", wins: "0",  Driver: { driverId: "carlos_sainz",      code: "SAI", url: "", givenName: "Carlos",   familyName: "Sainz",      dateOfBirth: "1994-09-01", nationality: "Spanish",     permanentNumber: "55" }, Constructors: [{ constructorId: "williams",      url: "", name: "Williams",      nationality: "British"   }] },
-  { position: "8", positionText: "8", points: "138", wins: "0",  Driver: { driverId: "kimi_antonelli",    code: "ANT", url: "", givenName: "Kimi",     familyName: "Antonelli",  dateOfBirth: "2006-08-25", nationality: "Italian",     permanentNumber: "12" }, Constructors: [{ constructorId: "mercedes",      url: "", name: "Mercedes",      nationality: "German"    }] },
-  { position: "9", positionText: "9", points: "112", wins: "0",  Driver: { driverId: "fernando_alonso",   code: "ALO", url: "", givenName: "Fernando", familyName: "Alonso",     dateOfBirth: "1981-07-29", nationality: "Spanish",     permanentNumber: "14" }, Constructors: [{ constructorId: "aston_martin",  url: "", name: "Aston Martin",  nationality: "British"   }] },
-  { position: "10",positionText:"10", points: "89",  wins: "0",  Driver: { driverId: "liam_lawson",       code: "LAW", url: "", givenName: "Liam",     familyName: "Lawson",     dateOfBirth: "2002-02-11", nationality: "New Zealander",permanentNumber: "30" }, Constructors: [{ constructorId: "red_bull",      url: "", name: "Red Bull",      nationality: "Austrian"  }] },
-];
+const MOCK_DRIVER_STANDINGS: ErgastDriverStanding[] = [...CANON_DRIVERS]
+  .sort((a, b) => a.season.position - b.season.position)
+  .map((d) => ({
+    position: String(d.season.position),
+    positionText: String(d.season.position),
+    points: String(d.season.points),
+    wins: String(d.season.wins),
+    Driver: {
+      driverId: `${d.given_name}_${d.family_name}`.toLowerCase(),
+      code: d.code,
+      url: "",
+      givenName: d.given_name,
+      familyName: d.family_name,
+      dateOfBirth: "",
+      nationality: "",
+      permanentNumber: String(d.number),
+    },
+    Constructors: [{ constructorId: d.team.toLowerCase().replace(/\s+/g, "_"), url: "", name: d.team, nationality: "" }],
+  }));
 
-const MOCK_CONSTRUCTOR_STANDINGS: ErgastConstructorStanding[] = [
-  { position: "1", positionText: "1", points: "847", wins: "15", Constructor: { constructorId: "mclaren",     url: "", name: "McLaren",     nationality: "British"  } },
-  { position: "2", positionText: "2", points: "600", wins: "6",  Constructor: { constructorId: "ferrari",      url: "", name: "Ferrari",      nationality: "Italian"  } },
-  { position: "3", positionText: "3", points: "432", wins: "3",  Constructor: { constructorId: "red_bull",     url: "", name: "Red Bull",     nationality: "Austrian" } },
-  { position: "4", positionText: "4", points: "410", wins: "2",  Constructor: { constructorId: "mercedes",     url: "", name: "Mercedes",     nationality: "German"   } },
-  { position: "5", positionText: "5", points: "152", wins: "0",  Constructor: { constructorId: "williams",     url: "", name: "Williams",     nationality: "British"  } },
-];
+const MOCK_CONSTRUCTOR_STANDINGS: ErgastConstructorStanding[] = [...CANON_TEAMS]
+  .sort((a, b) => a.season.position - b.season.position)
+  .map((t) => ({
+    position: String(t.season.position),
+    positionText: String(t.season.position),
+    points: String(t.season.points),
+    wins: String(t.season.wins),
+    Constructor: { constructorId: t.name.toLowerCase().replace(/\s+/g, "_"), url: "", name: t.name, nationality: "" },
+  }));
 
 const MOCK_RACES: ErgastRace[] = [
   { season: "2025", round: "1",  url: "", raceName: "Bahrain Grand Prix",         Circuit: { circuitId: "bahrain",       url: "", circuitName: "Bahrain International Circuit",    Location: { lat: "26.0325",  long: "50.5106",   locality: "Sakhir",       country: "Bahrain"      } }, date: "2024-03-02", time: "15:00:00Z" },

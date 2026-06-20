@@ -12,14 +12,11 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ── Static ticker items ───────────────────────────────────────────────────────
+// ── Static ticker items (kept short; one accent emoji only) ──────────────────
 const STATIC_TICKER = [
-  "🏁 2025 SEASON · FORMULA 1 WORLD CHAMPIONSHIP",
-  "⚡ AI PREDICTIONS · RANDOM FOREST ML MODEL",
-  "📡 LIVE TIMING · REAL F1 DATA",
-  "🏆 24 ROUNDS · 20 DRIVERS · 10 CONSTRUCTORS",
-  "🌡️ TRACK ANALYTICS · CIRCUIT TELEMETRY",
-  "🛞 PIT STRATEGY ANALYSIS · ML POWERED",
+  "🏁 2025 Formula 1 World Championship",
+  "AI predictions · Random Forest model",
+  "24 rounds · 20 drivers · 10 constructors",
 ];
 
 // ── Nav links ─────────────────────────────────────────────────────────────────
@@ -69,9 +66,13 @@ function RaceTicker() {
   const allItems = [...dynamicItems, ...STATIC_TICKER];
   const doubled = [...allItems, ...allItems];
 
-  const badgeLabel = isSimulation ? "◉ SIM" : isLive ? "● LIVE" : "● LIVE";
-  const badgeColor = isSimulation ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-    : "bg-red-600/20 text-red-400 border-red-600/30";
+  // Don't claim "LIVE" unless a real live session is detected.
+  const badgeLabel = isLive ? "● LIVE" : isSimulation ? "◉ DEMO" : "● 2025";
+  const badgeColor = isLive
+    ? "bg-red-600/20 text-red-400 border-red-600/30"
+    : isSimulation
+    ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+    : "bg-white/10 text-neutral-300 border-white/15";
 
   return (
     <div className="w-full bg-[#0d0d14] border-b border-white/5 overflow-hidden py-1.5 select-none flex items-center" style={{ zIndex: 200 }}>

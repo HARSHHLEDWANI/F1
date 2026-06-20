@@ -277,9 +277,9 @@ export default function LiveLeaderboard() {
     prevPositions.current = next;
   }, [leaderboard]);
 
-  // Race / circuit name from simulation
-  const raceName    = "Monaco Grand Prix";
-  const circuitName = "Circuit de Monaco";
+  // The simulation is not a real session, so don't label it with a real GP.
+  const raceName    = isLive ? "Live Session" : "Demo Race";
+  const circuitName = isLive ? "Current Grand Prix" : "Simulated telemetry";
 
   return (
     <div

@@ -133,6 +133,26 @@ body {
   animation-play-state: paused;
 }
 
+/* ── Respect prefers-reduced-motion ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Stop the ticker from translating; show a static strip instead. */
+  .ticker-track {
+    animation: none !important;
+    transform: none !important;
+  }
+  .pulse-red {
+    animation: none !important;
+  }
+}
+
 /* ── Speed Streak (canvas overlay) ────────────────────────────────────────── */
 .speed-overlay {
   position: absolute;

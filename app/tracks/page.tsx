@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import CircuitMinimap from "@/components/3d/CircuitMinimap";
 import { apiFetch } from "@/lib/api";
+import { SELECTABLE_SEASONS } from "@/lib/season2025";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -38,7 +39,14 @@ interface CircuitData {
   svgPath: string;
   drsZonesFractions: [number, number][];
   round: number;
+  source?: string;
+  lastVerified?: string; // ISO date the lap record / facts were last checked
 }
+
+// Provenance for the hardcoded circuit facts (esp. lap records). Lap records
+// are official FIA race lap records cross-checked against Formula1.com.
+const LAP_RECORDS_SOURCE = "Formula1.com / FIA official race lap records";
+const LAP_RECORDS_LAST_VERIFIED = "2026-06-20";
 
 // ─────────────────────────────────────────────────────────────
 // Hardcoded circuit data (real F1 2025 season data)
@@ -472,9 +480,11 @@ const CIRCUITS_DATA: CircuitData[] = [
     country: "USA",
     countryCode: "US",
     flag: "🇺🇸",
-    lapRecord: "1:35.490",
-    lapRecordHolder: "Oscar Piastri",
-    lapRecordYear: 2024,
+    // Official race lap record set under FIA conditions (2025 GP). The earlier
+    // 1:35.490 (Piastri) was the 2023 inaugural-race fastest lap, not the record.
+    lapRecord: "1:33.365",
+    lapRecordHolder: "Max Verstappen",
+    lapRecordYear: 2025,
     laps: 50,
     distance: 6.201,
     drsZones: 2,
@@ -537,7 +547,7 @@ const TRACK_TYPE_STYLES: Record<string, { bg: string; border: string; text: stri
   MIXED: { bg: "bg-violet-500/15", border: "border-violet-500/40", text: "text-violet-400", label: "MIXED" },
 };
 
-const SEASONS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+const SEASONS = SELECTABLE_SEASONS;
 
 const COUNTRIES = Array.from(new Set(CIRCUITS_DATA.map((c) => c.country))).sort();
 
@@ -1028,7 +1038,7 @@ export default function TracksPage() {
           transition={{ delay: 0.8 }}
           className="mt-16 text-center text-[10px] text-neutral-700 uppercase tracking-widest font-bold"
         >
-          F1 {selectedSeason} · {filtered.length} Circuits · Data subject to FIA confirmation
+          F1 {selectedSeason} · {filtered.length} Circuits · Lap records: {LAP_RECORDS_SOURCE} · Verified {LAP_RECORDS_LAST_VERIFIED}
           {apiLoading && (
             <span className="ml-3 inline-flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />

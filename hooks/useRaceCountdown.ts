@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchNextRace } from "@/lib/f1api";
 
 // ---------------------------------------------------------------------------
 // 2025 F1 Calendar
@@ -386,6 +387,15 @@ function findNextRace(now: Date): F1Race | null {
   );
 }
 
+// Minimal country → flag mapping for races resolved from the live API.
+const COUNTRY_FLAG: Record<string, string> = {
+  Australia: "🇦🇺", Bahrain: "🇧🇭", China: "🇨🇳", Japan: "🇯🇵", "Saudi Arabia": "🇸🇦",
+  USA: "🇺🇸", "United States": "🇺🇸", Italy: "🇮🇹", Monaco: "🇲🇨", Canada: "🇨🇦",
+  Spain: "🇪🇸", Austria: "🇦🇹", UK: "🇬🇧", "United Kingdom": "🇬🇧", Hungary: "🇭🇺",
+  Belgium: "🇧🇪", Netherlands: "🇳🇱", Azerbaijan: "🇦🇿", Singapore: "🇸🇬",
+  Mexico: "🇲🇽", Brazil: "🇧🇷", Qatar: "🇶🇦", UAE: "🇦🇪", "United Arab Emirates": "🇦🇪",
+};
+
 function padTwo(n: number): string {
   return String(Math.max(0, n)).padStart(2, "0");
 }
@@ -413,6 +423,7 @@ export interface UseRaceCountdownReturn {
   formattedCountdown: string;
   raceWeekend: RaceWeekend | null;
   totalSecondsUntil: number;
+  isOffSeason: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -421,13 +432,46 @@ export interface UseRaceCountdownReturn {
 
 export function useRaceCountdown(): UseRaceCountdownReturn {
   const [now, setNow] = useState<Date>(() => new Date());
+  // Live next race resolved from the API (rolls forward into future seasons).
+  const [liveRace, setLiveRace] = useState<F1Race | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1_000);
     return () => clearInterval(id);
   }, []);
 
-  const nextRace = findNextRace(now);
+  // Fetch the real next race from Jolpica so the countdown keeps working once
+  // the hardcoded 2025 calendar is in the past.
+  useEffect(() => {
+    let cancelled = false;
+    fetchNextRace()
+      .then((race) => {
+        if (cancelled || !race) return;
+        const country = race.Circuit?.Location?.country ?? "";
+        setLiveRace({
+          round: Number(race.round),
+          raceName: race.raceName,
+          circuit: race.Circuit?.circuitName ?? "",
+          location: race.Circuit?.Location?.locality ?? "",
+          country,
+          raceDate: race.date,
+          raceTime: (race.time ?? "00:00:00Z").slice(0, 5),
+          flag: COUNTRY_FLAG[country] ?? "🏁",
+        });
+      })
+      .catch(() => { /* fall back to the hardcoded calendar */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Prefer the hardcoded calendar while it still has an upcoming race (richer
+  // session data); otherwise use the live API result.
+  const calendarNext = findNextRace(now);
+  const nextRace =
+    calendarNext && getRaceDateTime(calendarNext) > now
+      ? calendarNext
+      : liveRace && getRaceDateTime(liveRace) > now
+      ? liveRace
+      : null;
 
   if (!nextRace) {
     return {
@@ -436,9 +480,10 @@ export function useRaceCountdown(): UseRaceCountdownReturn {
       hoursUntil: 0,
       minutesUntil: 0,
       secondsUntil: 0,
-      formattedCountdown: "Season Over",
+      formattedCountdown: "Off-season",
       raceWeekend: null,
       totalSecondsUntil: 0,
+      isOffSeason: true,
     };
   }
 
@@ -475,5 +520,6 @@ export function useRaceCountdown(): UseRaceCountdownReturn {
     formattedCountdown,
     raceWeekend,
     totalSecondsUntil: totalSeconds,
+    isOffSeason: false,
   };
 }

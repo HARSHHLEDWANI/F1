@@ -8,8 +8,25 @@ const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
 const mono = JetBrains_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "F1 Predictor | 2026 Analytics",
-  description: "AI-powered Formula 1 telemetry and race predictions.",
+  metadataBase: new URL("https://f1-theta-seven.vercel.app"),
+  title: {
+    default: "F1 Predictor | 2025 Analytics",
+    template: "%s | F1 Predictor",
+  },
+  description:
+    "AI-powered Formula 1 analytics — 2025 grid, standings, circuits and ML race predictions.",
+  openGraph: {
+    title: "F1 Predictor | 2025 Analytics",
+    description:
+      "AI-powered Formula 1 analytics — 2025 grid, standings, circuits and ML race predictions.",
+    type: "website",
+    siteName: "F1 Predictor",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "F1 Predictor | 2025 Analytics",
+    description: "AI-powered Formula 1 analytics and ML race predictions.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
